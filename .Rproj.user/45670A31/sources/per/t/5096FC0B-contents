@@ -1,0 +1,23 @@
+Package: DBOE
+Type: Package
+Title: Datbase Object Explorer
+Version: 1.2.22
+Author: Chionesu George <cgeorge@alliancehealthplan.org> [aut, cre]
+Maintainer: Alliance Health Data Science Department <DScience@alliancehealthplan.org>
+Description: Explore DBMS metadata with an R6 object
+License: Unicorn Overlords
+Encoding: UTF-8
+LazyData: true
+Desc: Explore DBMS metadata.
+Depends: R (>= 4.1.2)
+	, data.table
+	, purrr
+	, stringi
+	, httr
+	, DBI
+	, xml2
+	, keyring
+	, lubridate
+	, tictoc
+	, book.of.features
+RoxygenNote: 7.2.0
