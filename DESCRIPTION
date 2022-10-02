@@ -1,9 +1,9 @@
 Package: DBOE
 Type: Package
 Title: Datbase Object Explorer
-Version: 1.2.22
-Author: Chionesu George <cgeorge@alliancehealthplan.org> [aut, cre]
-Maintainer: Alliance Health Data Science Department <DScience@alliancehealthplan.org>
+Version: 2.0.0
+Author: Chionesu George <sapienti.Dei@outlook.com> [aut, cre]
+Maintainer: Chionesu George <sapienti.Dei@outlook.com>
 Description: Explore DBMS metadata with an R6 object
 License: Unicorn Overlords
 Encoding: UTF-8
