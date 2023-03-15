@@ -2,21 +2,14 @@
 % Please edit documentation in R/DBOE.R
 \name{DBOE}
 \alias{DBOE}
-\title{An R6 class to explore and interact with SQL Server DBMS metadata}
+\title{Database Object Explorer}
 \description{
 \code{DBOE} facilitates the navigation of SQL Server DBMS objects by way of retrieving the metatadata objects.
 It also provides methods to retrieve information from the data catalog: specifically, the \href{http://datacatalog.alliance.local/en/datacatalog/edwchangelog}{EDW changelog}.  Once retrieved, changes can be compared against user-supplied source code
-
-Note: the user is responsible for locking keyrings when finished
 }
-\section{Workflow}{
-
-The workflow should look like the following:\cr
-\code{dboe <- DBOE$new(dsn = , credentials = )$}\cr
-<Database-related> $get.metadata(){$get.xdep(db = )}\cr
-<Changelog-related> $get.changelog(){$search.changelog(db = , ...) | dboe$crossref.code(code_files = , use.search = "c"){; dboe$report}}
+\note{
+The workflow should look like the following:\cr \code{DBOE$new(dsn = , credentials = )\{$get.metadata()\{$get.xdep(db = )\{$get.changelog()\{$search.changelog(db = , ...) | crossref.code(code_files = , use.search = "c")\{; dboe$report\}\}\}\}\}}
 }
-
 \concept{changelog}
 \concept{metadata}
 \section{Public fields}{
@@ -79,7 +72,7 @@ The class object, invisibly
 \if{html}{\out{<a id="method-DBOE-get.metadata"></a>}}
 \if{latex}{\out{\hypertarget{method-DBOE-get.metadata}{}}}
 \subsection{Method \code{get.metadata()}}{
-\code{$get.metadata()} retrieves metadata information for the database pointed to by argument \code{conns}.
+\code{$get.metadata()} retrieves metadata information for the database pointed to by argument \code{conns}. Once metadata has been retrieved, metadata can be accessed for tables, views, and stored procedures using the following access method: \code{<DBOE obj>$<database name>$<table/view/proc name>}
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{DBOE$get.metadata(conns = self$conns, chatty = FALSE)}\if{html}{\out{</div>}}
 }

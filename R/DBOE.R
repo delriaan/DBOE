@@ -1,14 +1,11 @@
-#' An R6 class to explore and interact with SQL Server DBMS metadata
+#' Database Object Explorer
+#'
 #' @description
 #' \code{DBOE} facilitates the navigation of SQL Server DBMS objects by way of retrieving the metatadata objects.
 #' It also provides methods to retrieve information from the data catalog: specifically, the \href{http://datacatalog.alliance.local/en/datacatalog/edwchangelog}{EDW changelog}.  Once retrieved, changes can be compared against user-supplied source code
 #'
-#' Note: the user is responsible for locking keyrings when finished
-#' @section Workflow:
-#' The workflow should look like the following:\cr
-#' \code{dboe <- DBOE$new(dsn = , credentials = )$}\cr
-#' <Database-related> $get.metadata(){$get.xdep(db = )}\cr
-#' <Changelog-related> $get.changelog(){$search.changelog(db = , ...) | dboe$crossref.code(code_files = , use.search = "c"){; dboe$report}}
+#' @note
+#' The workflow should look like the following:\cr \code{DBOE$new(dsn = , credentials = )\{$get.metadata()\{$get.xdep(db = )\{$get.changelog()\{$search.changelog(db = , ...) | crossref.code(code_files = , use.search = "c")\{; dboe$report\}\}\}\}\}}
 #' @export
 DBOE <- { R6::R6Class(
     classname = "DBOE"
@@ -28,7 +25,7 @@ DBOE <- { R6::R6Class(
           invisible(self);
         },
         #' @description
-        #' \code{$get.metadata()} retrieves metadata information for the database pointed to by argument \code{conns}.
+        #' \code{$get.metadata()} retrieves metadata information for the database pointed to by argument \code{conns}. Once metadata has been retrieved, metadata can be accessed for tables, views, and stored procedures using the following access method: \code{<DBOE obj>$<database name>$<table/view/proc name>}
         #' @param conns A named list of DBI connections given as <database name> = <DBI connection>
         #' @param chatty (logical) When \code{TRUE}, additional execution messages are sent to the console
         #' @family metadata
@@ -46,7 +43,9 @@ DBOE <- { R6::R6Class(
 
             req.objs = iterators::iter("sys." %s+% c("tables", "columns", "schemas", "procedures", "views", "types", "synonyms"));
 
-            check.etl_obj = function(obj){ if (!exists(obj, envir = proxy_env)){ message(sprintf("<%s> Failed to retrieve %s", this.db, obj)) }}
+            check.etl_obj = function(obj){
+            		if (!exists(obj, envir = proxy_env)){ message(sprintf("<%s> Failed to retrieve %s", this.db, obj)) }
+            	}
 
             message(sprintf("Processing metadata for <%s>", this.db));
 
@@ -157,6 +156,63 @@ DBOE <- { R6::R6Class(
 	              setcolorder(c("database", "tbl_name", "col_name")) %>%
 	              setkey(tbl_name, column_id);
             }
+            # Active bindings ====
+            message("Creating active bindings")
+            # Stored procedures
+						if (nrow(proxy_env$sys.procedures) > 0){
+							.temp <- proxy_env$sys.procedures[
+						          !is.na(proc_name)
+						          , list(list(.SD[, schema_name:proc_def]))
+						          , by = proc_name
+						          ] %$% rlang::set_names(V1, proc_name);
+
+							proxy_env$.proc_dm <- rlang::as_data_mask(.temp)
+
+							ls(.temp, pattern = "^[a-z]") |> purrr::walk(~{
+							    rlang::expr(makeActiveBinding(
+							      sym = !!.x
+							      , fun = function(){ rlang::eval_tidy(quo(.data[[!!.x]]), data = !!(proxy_env$.proc_dm)) }
+							      , env = proxy_env
+							      )) |> eval()
+							  })
+						}
+
+            # Views
+						if (nrow(proxy_env$sys.views) > 0){
+	            .temp <- proxy_env$sys.views[
+							          !is.na(view_name)
+							          , list(list(.SD[, schema_name:view_def]))
+							          , by = view_name
+							          ] %$% rlang::set_names(V1, view_name);
+
+							proxy_env$.view_dm <- rlang::as_data_mask(.temp);
+
+							ls(.temp, pattern = "^[a-z]") |> purrr::walk(~{
+							    rlang::expr(makeActiveBinding(
+							      sym = !!.x
+							      , fun = function(){ rlang::eval_tidy(quo(.data[[!!.x]]), data = !!(proxy_env$.view_dm)) }
+							      , env = proxy_env
+							      )) |> eval()
+							  });
+          	}
+
+            # Tables and columns
+						.temp <- proxy_env$metamap[
+						          !is.na(col_name)
+						          , list(split(.SD, by = "col_name") |> purrr::map(~.x[, schema_name:col_meta]) |> list())
+						          , by = tbl_name
+						          ] %$% rlang::set_names(V1, tbl_name)
+
+						proxy_env$.tbl_dm <- rlang::as_data_mask(.temp)
+
+						ls(.temp, pattern = "^[a-z]") |> purrr::walk(~{
+						  rlang::expr(makeActiveBinding(
+						    sym = !!.x
+						    , fun = function(){ rlang::eval_tidy(quo(.data[[!!.x]]), data = !!(proxy_env$.tbl_dm)) }
+						    , env = proxy_env
+						    )) |> eval()
+						})
+
             toc(log = TRUE, quiet = !chatty);
           });
 
@@ -522,3 +578,6 @@ query_adhoc <- function(url, ...){
     if ("col_names" %in% names(.)){ .out[!is.na(col_name), .(col_names = list(c(col_name))), by = c(key(.out))] } else { .out }
   }
 }
+
+# pkgdown::build_site()
+# usethis::use_proprietary_license("Chionesu George")
