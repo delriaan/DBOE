@@ -43,6 +43,7 @@ The workflow should look like the following:\cr \code{DBOE$new(dsn = , credentia
 \item \href{#method-DBOE-get.changelog}{\code{DBOE$get.changelog()}}
 \item \href{#method-DBOE-search.changelog}{\code{DBOE$search.changelog()}}
 \item \href{#method-DBOE-crossref.code}{\code{DBOE$crossref.code()}}
+\item \href{#method-DBOE-make.virtual_database}{\code{DBOE$make.virtual_database()}}
 \item \href{#method-DBOE-clone}{\code{DBOE$clone()}}
 }
 }
@@ -184,6 +185,28 @@ The class object, invisibly
 }
 \subsection{Returns}{
 The class object, invisibly
+Create a Virtual DBOE Database
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-DBOE-make.virtual_database"></a>}}
+\if{latex}{\out{\hypertarget{method-DBOE-make.virtual_database}{}}}
+\subsection{Method \code{make.virtual_database()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{DBOE$make.virtual_database(db = names(self$conns))}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{db}}{The \code{DBOE} connection name to use}
+
+\item{\code{dboe}}{A \code{DBOE} object}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+An assignable environment object with \code{\link[DBI]}-sourced \code{\link[dplyr]{tbl}s} (this cannot be R6-piped)
 }
 }
 \if{html}{\out{<hr>}}

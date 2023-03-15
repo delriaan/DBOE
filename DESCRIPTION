@@ -1,7 +1,7 @@
 Package: DBOE
 Type: Package
 Title: Datbase Object Explorer
-Version: 2.0.3
+Version: 2.0.9
 Author: Chionesu George <sapienti.Dei@outlook.com> [aut, cre]
 Maintainer: Chionesu George <sapienti.Dei@outlook.com>
 Description: Explore DBMS metadata with an R6 object
@@ -10,11 +10,12 @@ Encoding: UTF-8
 LazyData: true
 Desc: Explore DBMS metadata.
 Depends: R (>= 4.1.2)
+	, purrr (< 1.0.0)
 	, data.table
-	, purrr
 	, stringi
-	, httr
 	, DBI
+	, dplyr
+	, httr
 	, xml2
 	, keyring
 	, lubridate
