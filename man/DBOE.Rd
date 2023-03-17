@@ -185,28 +185,30 @@ The class object, invisibly
 }
 \subsection{Returns}{
 The class object, invisibly
-Create a Virtual DBOE Database
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-DBOE-make.virtual_database"></a>}}
 \if{latex}{\out{\hypertarget{method-DBOE-make.virtual_database}{}}}
 \subsection{Method \code{make.virtual_database()}}{
+\code{$make.virtual_database} creates a set of \code{\link[dplyr]{tbl}} objects in an environment
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{DBOE$make.virtual_database(db = names(self$conns))}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{DBOE$make.virtual_database(conn_name = names(self$conns), db_env = new.env())}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{db}}{The \code{DBOE} connection name to use}
+\item{\code{conn_name}}{The \code{DBOE} connection name to use}
+
+\item{\code{db_env}}{The environment object where created objects should be stored}
 
 \item{\code{dboe}}{A \code{DBOE} object}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-An assignable environment object with \code{\link[DBI]}-sourced \code{\link[dplyr]{tbl}s} (this cannot be R6-piped)
+An assignable environment object with \code{\link[DBI]}-sourced \code{\link[dplyr]{tbl}}s (this cannot be R6-piped)
 }
 }
 \if{html}{\out{<hr>}}

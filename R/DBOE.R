@@ -460,21 +460,26 @@ DBOE <- { R6::R6Class(
 	          	);
           } else { invisible(self)}
         },
-				#' Create a Virtual DBOE Database
+				#' @description
+				#' \code{$make.virtual_database} creates a set of \code{\link[dplyr]{tbl}} objects in an environment
 				#' @param dboe A \code{DBOE} object
-				#' @param db The \code{DBOE} connection name to use
-				#' @return An assignable environment object with \code{\link[DBI]}-sourced \code{\link[dplyr]{tbl}s} (this cannot be R6-piped)
-				make.virtual_database = function(db = names(self$conns)){
-					db <- match.arg(db);
+				#' @param conn_name The \code{DBOE} connection name to use
+				#' @param db_env The environment object where created objects should be stored
+				#' @return An assignable environment object with \code{\link[DBI]}-sourced \code{\link[dplyr]{tbl}}s (this cannot be R6-piped)
+				make.virtual_database = function(conn_name = names(self$conns), db_env = new.env()){
+					db <- match.arg(conn_name);
 
 					c(self[[db]] %$% {
-						sys.tables[sys.schemas, on = "schema_id"][!is.na(tbl_name)] %$% rlang::set_names(purrr::map2(dplyr::sql(schema_name), dplyr::sql(tbl_name), dbplyr::in_schema), tbl_name)}
+						sys.tables[sys.schemas, on = "schema_id"][!is.na(tbl_name)] %$%
+							rlang::set_names(purrr::map2(dplyr::sql(schema_name), dplyr::sql(tbl_name), dbplyr::in_schema), tbl_name)
+						}
 						, self[[db]] %$% {
-							sys.views[sys.schemas, on = "schema_id"][!is.na(view_name)] %$% rlang::set_names(purrr::map2(dplyr::sql(schema_name), dplyr::sql(view_name), dbplyr::in_schema), view_name)}
-						) %>%
+							sys.views[sys.schemas, on = "schema_id"][!is.na(view_name)] %$%
+								rlang::set_names(purrr::map2(dplyr::sql(schema_name), dplyr::sql(view_name), dbplyr::in_schema), view_name)
+							}) %>%
 						.[!duplicated(names(.))] |>
 						purrr::map(purrr::possibly(~dplyr::tbl(src = self$conns[[db]], from = .x), otherwise = "Could not connect")) |>
-						list2env(new.env())
+						list2env(envir = db_env)
 				}
       )}
     , private = list(keyring_credentials = NULL, changelog.url = "http://datacatalog.alliance.local/en/datacatalog/edwchangelog")
