@@ -1,7 +1,7 @@
 Package: DBOE
 Type: Package
 Title: Datbase Object Explorer
-Version: 2.0.10
+Version: 2.0.11
 Author: Chionesu George <sapienti.Dei@outlook.com> [aut, cre]
 Maintainer: Chionesu George <sapienti.Dei@outlook.com>
 Description: Explore DBMS metadata with an R6 object
