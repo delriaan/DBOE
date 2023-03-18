@@ -1,5 +1,3 @@
-.onLoad <- function(libname, pkgname){ options(warn = -1); on.exit(options(warn = 0)) }
-
 #' Database Object Explorer
 #'
 #' @description
