@@ -601,5 +601,3 @@ query_adhoc <- function(url, ...){
   }
 }
 
-# pkgdown::build_site()
-# usethis::use_proprietary_license("Chionesu George")
