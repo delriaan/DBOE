@@ -118,7 +118,7 @@ The class object, invisibly
 \code{$get.changelog()} retrieves the content of the \href{http://datacatalog.alliance.local/en/datacatalog/edwchangelog}{EDW changelog}, parses it, and transforms it into a tabular format making it fit to be compared against database metadata and source code.  This, along with the HTTP response content itself are stored in a class-member list named \code{$changelog} with the following members: \cr
 \describe{
    \item{content}{The HTML markup of the <body> of the retrieved content as an XML document pointer}
-   \item{explore}{A \code{\link[data.table]{data.table}} object containing the parsed and transformed elements of the changelog markup.  Each column and the entire object itself is provided with descriptive attributes }
+   \item{explore}{A \code{\link[data.table]{data.table}} object containing the parsed and transformed elements of the changelog markup.  Each column and the entire object itself is provided with descriptive attributes}
 }
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{DBOE$get.changelog(chatty = FALSE)}\if{html}{\out{</div>}}
@@ -193,7 +193,11 @@ The class object, invisibly
 \subsection{Method \code{make.virtual_database()}}{
 \code{$make.virtual_database} creates a set of \code{\link[dplyr]{tbl}} objects in an environment
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{DBOE$make.virtual_database(conn_name = names(self$conns), db_env = new.env())}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{DBOE$make.virtual_database(
+  conn_name = names(self$conns),
+  db_env = new.env(),
+  ...
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -203,12 +207,12 @@ The class object, invisibly
 
 \item{\code{db_env}}{The environment object where created objects should be stored}
 
-\item{\code{dboe}}{A \code{DBOE} object}
+\item{\code{...}}{The names of objects to retrieve: retrieves all tables and views if left blank}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-An assignable environment object with \code{\link[DBI]}-sourced \code{\link[dplyr]{tbl}}s (this cannot be R6-piped)
+An assignable environment object with \code{DBI}-sourced \code{\link[dplyr]{tbl}}s
 }
 }
 \if{html}{\out{<hr>}}

@@ -6,6 +6,12 @@
 #'
 #' @note
 #' The workflow should look like the following:\cr \code{DBOE$new(dsn = , credentials = )\{$get.metadata()\{$get.xdep(db = )\{$get.changelog()\{$search.changelog(db = , ...) | crossref.code(code_files = , use.search = "c")\{; dboe$report\}\}\}\}\}}
+#'
+#' @importFrom rlang %||%
+#' @importFrom stringi %s+%
+#' @importFrom magrittr %>% %$% %T>%
+#' @importFrom purrr reduce
+#'
 #' @export
 DBOE <- { R6::R6Class(
     classname = "DBOE"
@@ -31,113 +37,94 @@ DBOE <- { R6::R6Class(
         #' @family metadata
         #' @return The class object, invisibly
         get.metadata = function(conns = self$conns, chatty = FALSE){
-          iwalk(conns, ~{
+          purrr::walk(conns, ~{
           	# An ODBC connection for each value in .y must be created to use this mapper as-is.
             this.db = .x@info$dbname;
             neo.conn = .x;
 
             tic("\tMetadata -> " %s+% this.db);
-            proxy_env = new.env(); assign(.y, proxy_env, envir = self);
+            proxy_env <- new.env();
+            assign(.y, proxy_env, envir = self);
 
-            schema.filter = "^(db[_]|sys|infor|mdm|guest)"
+            schema.filter <- "^(db[_]|sys|infor|mdm|guest)"
 
-            req.objs = iterators::iter("sys." %s+% c("tables", "columns", "schemas", "procedures", "views", "types", "synonyms"));
+            req.objs <- iterators::iter("sys." %s+% c("tables", "columns", "schemas", "procedures", "views", "types", "synonyms"));
 
-            check.etl_obj = function(obj){
-            		if (!exists(obj, envir = proxy_env)){ message(sprintf("<%s> Failed to retrieve %s", this.db, obj)) }
-            	}
+            check.etl_obj <- function(obj){
+          		if (!exists(obj, envir = proxy_env)){ message(sprintf("<%s> Failed to retrieve %s", this.db, obj)) }
+          	}
+
+            post.op <- function(i){
+              		data.table::setDT(i) |>
+              		data.table::setkey(schema_id, parent_object_id, object_id) |>
+              		data.table::setnames("name", "tbl_name")
+              	}
 
             message(sprintf("Processing metadata for <%s>", this.db));
 
             # Tables ====
-            proxy_env$sys.tables <- { do.get_data(
-            	this.conn = neo.conn
-              , src.name = "sys.tables"
-              , post.op = function(i){ setDT(i) %>% setkey(schema_id, parent_object_id, object_id) %>% setnames("name", "tbl_name") }
-              , promise = !TRUE
-            )}
+            proxy_env$sys.tables <- DBI::dbReadTable(neo.conn, "sys.tables") |> post.op()
             check.etl_obj(iterators::nextElem(req.objs))
 
             # Columns ====
-            proxy_env$sys.columns <- { do.get_data(
-            	this.conn = neo.conn
-              , src.name = "sys.columns"
-              , post.op = function(i){ setDT(i) %>% setkey(object_id) %>% setnames("name", "col_name") }
-              , promise = !TRUE
-              )}
+            proxy_env$sys.columns <- DBI::dbReadTable(neo.conn, "sys.columns") |> post.op()
             check.etl_obj(iterators::nextElem(req.objs))
 
             # Schemas ====
-            proxy_env$sys.schemas <- { do.get_data(
-            	this.conn = neo.conn
-            	, src.name = "sys.schemas"
-              , post.op = function(i){ setDT(i) %>% setkey(schema_id) %>% setnames("name", "schema_name") }
-              , promise = !TRUE
-              )}
+            proxy_env$sys.schemas <- DBI::dbReadTable(neo.conn, "sys.schemas") |> post.op()
             check.etl_obj(iterators::nextElem(req.objs))
 
             # Procs ====
-            proxy_env$sys.procedures <- { do.get_data(
-            	this.conn = neo.conn
-            	, src.name = "sys.procedures"
-              , sel = "[name], [schema_id], [object_id], proc_create_date = [create_date], proc_upd_date = [modify_date]"
-              , post.op = function(i){
-                  setDT(i)[
-                  proxy_env$sys.schemas[!(schema_name %ilike% "^(sys|infor|mdm|guest)"), .(schema_id, schema_name)]
-                  , on = "schema_id", nomatch = 0
-                  ][, proc_def := map2(schema_name, name, ~{
-                      dbGetQuery(neo.conn, statement = sprintf("EXEC sp_helptext N'%s.%s.%s'", this.db, .x, .y)) %>%
-                        unlist %>% reduce(paste0)
-                    }) %>% unlist
-                  ] %>% setnames("name", "proc_name") %>% setkey(schema_id, proc_name)
+            post.op <- function(i){
+                  data.table::setDT(i)[
+	                  proxy_env$sys.schemas[!(schema_name %ilike% "^(sys|infor|mdm|guest)"), .(schema_id, schema_name)]
+	                  , on = "schema_id", nomatch = 0
+	                  ][, proc_def := map2(schema_name, name, ~{
+	                      DBI::dbGetQuery(neo.conn, statement = sprintf("EXEC sp_helptext N'%s.%s.%s'", this.db, .x, .y)) |>
+	                        unlist() |> purrr::reduce(paste0)
+	                    }) |> unlist()
+	                  ] |>
+	              		data.table::setnames("name", "proc_name") |>
+	              		data.table::setkey(schema_id, proc_name)
                 }
-              , promise = !TRUE
-              )}
+            proxy_env$sys.procedures <- { DBI::dbGetQuery(neo.conn, "SELECT [name], [schema_id], [object_id], proc_create_date = [create_date], proc_upd_date = [modify_date] FROM sys.procedures")} |> post.op();
             check.etl_obj(iterators::nextElem(req.objs))
 
             # Views ====
-            proxy_env$sys.views <- { do.get_data(
-            	this.conn = neo.conn
-            	, src.name = "sys.views"
-              , sel = "[name], [schema_id], [object_id], view_create_date = [create_date], view_upd_date = [modify_date]"
-              , post.op = function(i){
-                  setDT(i)[
+            post.op <- function(i){
+                  data.table::setDT(i)[
                     proxy_env$sys.schemas[!(schema_name %ilike% schema.filter), .(schema_id, schema_name)]
                     , on = "schema_id", nomatch = 0
-                    ][, view_def := map2_chr(schema_name, name, ~{
-                         dbGetQuery(neo.conn, statement = sprintf("EXEC sp_helptext N'%s.%s.%s'", this.db, .x, .y)) %>%
-                         unlist %>% reduce(paste0)
-                      }) %>% modify_if(~is_empty(.x), .f = ~"##NO DEF##", .else = eval)
-                    ] %>% setnames("name", "view_name") %>% setkey(schema_id, view_name)
+                    ][, view_def := purrr::map2_chr(schema_name, name, ~{
+                        DBI::dbGetQuery(neo.conn, statement = sprintf("EXEC sp_helptext N'%s.%s.%s'", this.db, .x, .y)) |>
+                        unlist() |>
+                    		purrr::reduce(paste0)
+                      }) |>
+                    	purrr::modify_if(~rlang::is_empty(.x), .f = ~"##NO DEF##", .else = eval)
+                    ] |>
+              		data.table::setnames("name", "view_name") |>
+              		data.table::setkey(schema_id, view_name)
                 }
-              , promise = !TRUE
-              )}
+            proxy_env$sys.views <- { DBI::dbGetQuery(neo.conn, "SELECT [name], [schema_id], [object_id], view_create_date = [create_date], view_upd_date = [modify_date] FROM sys.views")} |> post.op()
             check.etl_obj(iterators::nextElem(req.objs))
 
             # Types ====
-            proxy_env$sys.types <- { do.get_data(
-            	this.conn = neo.conn
-            	, src.name = "sys.types"
-              , sel = "name, system_type_id, schema_id"
-              , post.op = function(i){ setDT(i)[, .(data_type = paste(name, collapse = ", ")), by = .(schema_id, system_type_id)] %>%
-              		setkey(schema_id, system_type_id) }
-              , promise = !TRUE
-              )}
+        		post.op <- function(i){
+            		data.table::setDT(i)[, .(data_type = paste(name, collapse = ", ")), by = .(schema_id, system_type_id)] |>
+            		data.table::setkey(schema_id, system_type_id)
+            	}
+            proxy_env$sys.types <- { DBI::dbGetQuery(neo.conn, "SELECT name, system_type_id, schema_id FROM sys.types") |> post.op()}
             check.etl_obj(iterators::nextElem(req.objs))
 
             # Synonyms ====
-            proxy_env$sys.synonyms <- { do.get_data(
-            	this.conn = neo.conn
-            	, src.name = "sys.synonyms"
-              , sel = "[name], tgt_name = base_object_name, [schema_id], [object_id], syn_create_date = [create_date], syn_upd_date = [modify_date]"
-              , post.op = rlang::inject(function(i){
-                  setDT(i)[
+            post.op <- rlang::inject(function(i){
+                  data.table::setDT(i)[
                     get(!!.y, envir = self)$sys.schemas[!(schema_name %ilike% schema.filter), .(schema_id, schema_name)]
-                    , on = "schema_id", nomatch = 0
-                    ] %>% setnames("name", "syn_name") %>% setkey(schema_id, syn_name)
+                    , on = "schema_id", nomatch = 0] |>
+              		data.table::setnames("name", "syn_name") |>
+              		data.table::setkey(schema_id, syn_name)
                 })
-              , promise = !TRUE
-              )}
+            proxy_env$sys.synonyms <- { DBI::dbGetQuery(neo.conn, "SELECT [name], tgt_name = base_object_name, [schema_id], [object_id], syn_create_date = [create_date], syn_upd_date = [modify_date] FROM sys.synonyms") |> post.op()}
             check.etl_obj(iterators::nextElem(req.objs))
 
             # Combined Metadata ====
@@ -149,12 +136,12 @@ DBOE <- { R6::R6Class(
 	              sys.columns[sys.types, on = "system_type_id", .(col_name, column_id, data_type, system_type_id, max_length
 	                , precision, scale, is_nullable, is_identity, is_computed, is_xml_document, object_id)]
 	              , on = c("object_id"), nomatch = 0
-	              ][, c("object_id", "database", "col_meta") := list(NULL, this.db
-	                    , pmap(data.table(system_type_id, max_length, precision, scale, is_nullable, is_identity, is_computed, is_xml_document), list))
-	              ][, !c("system_type_id", "max_length", "precision", "scale", "is_nullable", "is_identity", "is_computed", "is_xml_document")
-	              ] %>%
-	              setcolorder(c("database", "tbl_name", "col_name")) %>%
-	              setkey(tbl_name, column_id);
+	              ][, c("object_id", "database", "col_meta") := list(
+	              			NULL, this.db
+	                    , purrr::map(data.table::data.table(system_type_id, max_length, precision, scale, is_nullable, is_identity, is_computed, is_xml_document), list))
+	              ][, !c("system_type_id", "max_length", "precision", "scale", "is_nullable", "is_identity", "is_computed", "is_xml_document")] |>
+	              data.table::setcolorder(c("database", "tbl_name", "col_name")) |>
+	              data.table::setkey(tbl_name, column_id);
             }
             # Active bindings ====
             message("Creating active bindings")
@@ -209,11 +196,10 @@ DBOE <- { R6::R6Class(
 						ls(.temp, pattern = "^[a-zA-Z]") |> purrr::walk(~{
 						  rlang::expr(makeActiveBinding(
 						    sym = !!.x
-						    , fun = function(){ rlang::eval_tidy(quo(.data[[!!.x]]), data = !!(proxy_env$.tbl_dm)) }
+						    , fun = function(){ rlang::eval_tidy(rlang::quo(.data[[!!.x]]), data = !!(proxy_env$.tbl_dm)) }
 						    , env = proxy_env
 						    )) |> eval()
 						})
-
             toc(log = TRUE, quiet = !chatty);
           });
 
@@ -226,39 +212,41 @@ DBOE <- { R6::R6Class(
         #' @return The class object, invisibly
         get.xdep = function(db){
         	if (missing(db)){ stop("Missing argument `db`") } else { db <- as.character(rlang::enexpr(db))}
-        	db_list = names(self$conns)
-          cross_dbs = mget(discard(db_list, ~.x == db), envir = self);
+        	db_list <- names(self$conns)
+          cross_dbs <- mget(purrr::discard(db_list, ~.x == db), envir = self);
           this_db <- self[[db]];
 
           # Cross-refs for views ...
           tryCatch({
-            invisible(this_db$sys.views[, .(view_def, view_name)] %>% as.list() %$% {
-              map(purrr::set_names(view_def, view_name), ~{
-                  .needle = .x;
+            invisible(this_db$sys.views[, .(view_def, view_name)] |> as.list() %$% {
+              purrr::map(purrr::set_names(view_def, view_name), ~{
+                .needle = .x;
 
-                  map(cross_dbs, ~{
-                    .x %$% { c(sys.tables$tbl_name, sys.views$tbl_name)} %>%
-                      keep(~.needle %ilike% .x ) %>%
-                  		purrr::compact()
-                    })
+                purrr::map(cross_dbs, ~{
+                  .x %$% { c(sys.tables$tbl_name, sys.views$tbl_name)} |>
+                    purrr::keep(~.needle %ilike% .x ) |>
+                		purrr::compact()
+                  })
                 })
-            	} %>% c() %>% setattr(x = this_db$sys.views, name = "dependencies"))
+            	} |>
+              c() |>
+              data.table::setattr(x = this_db$sys.views, name = "dependencies"))
             }, error = function(e){ message(db %s+% ": Error in checking for cross-refs of views") });
 
           # Cross-refs for procs ...
           tryCatch({
-            invisible(this_db$sys.procedures[, .(proc_name, proc_def)] %>% as.list() %$% {
-              map(purrr::set_names(proc_def, proc_name), ~{
-                  .needle = .x;
+            invisible(this_db$sys.procedures[, .(proc_name, proc_def)] |> as.list() %$% {
+              purrr::map(purrr::set_names(proc_def, proc_name), ~{
+                .needle = .x;
 
-                  map(cross_dbs, ~{
-                  	.x %$% { c(sys.tables$tbl_name, sys.views$tbl_name)} %>%
-                  		keep(~.needle %ilike% .x ) %>%
-                  		purrr::compact()
-                    })
-                })
-              } %>% c() %>% setattr(x = this_db$sys.procedures, name = "dependencies"))
-            }, error = function(e){ message(db %s+% ": Error in checking for cross-refs of stored procedures") });
+                purrr::map(cross_dbs, ~{
+                	.x %$% { c(sys.tables$tbl_name, sys.views$tbl_name)} %>%
+                		purrr::keep(~.needle %ilike% .x ) %>%
+                		purrr::compact()
+                  })
+              })
+            } |> c() |> data.table::setattr(x = this_db$sys.procedures, name = "dependencies"))
+          }, error = function(e){ message(db %s+% ": Error in checking for cross-refs of stored procedures") });
 
           invisible(self);
         },
@@ -266,7 +254,7 @@ DBOE <- { R6::R6Class(
         #' \code{$get.changelog()} retrieves the content of the \href{http://datacatalog.alliance.local/en/datacatalog/edwchangelog}{EDW changelog}, parses it, and transforms it into a tabular format making it fit to be compared against database metadata and source code.  This, along with the HTTP response content itself are stored in a class-member list named \code{$changelog} with the following members: \cr
         #' \describe{
         #'    \item{content}{The HTML markup of the <body> of the retrieved content as an XML document pointer}
-        #'    \item{explore}{A \code{\link[data.table]{data.table}} object containing the parsed and transformed elements of the changelog markup.  Each column and the entire object itself is provided with descriptive attributes }
+        #'    \item{explore}{A \code{\link[data.table]{data.table}} object containing the parsed and transformed elements of the changelog markup.  Each column and the entire object itself is provided with descriptive attributes}
         #' }
         #' @param chatty (logical) When \code{TRUE}, additional execution messages are sent to the console
         #' @family changelog
@@ -277,40 +265,55 @@ DBOE <- { R6::R6Class(
 	            , "Grouping ID at the level of the type of change"
 	            , "The date of the entry"
 	            , "The entry notes containing what was changed along with additional details"
-	            , "A type of change" %>% rep.int(5)
+	            , "A type of change" |> rep.int(5)
 	            , "Either the date of entry or a future date (matches against 'schedule' and looks for a date in format \"([0-9]+[.]?)+\" "
 	            , "One of \"PAST\" or \"FUTURE\" based on the value of column 'eff_date' relative to the current date "
-	            )} %>%
-          	enlist("change_set_id", "change_det_id", "notification_date", "change_note", "ADDED", "CHANGED", "DEPRECATED", "REMOVED", "FIXED", "eff_date", "schedule");
+	            )
+	          } |>
+          rlang::set_names("change_set_id", "change_det_id"
+          								 , "notification_date", "change_note"
+          								 , "ADDED", "CHANGED", "DEPRECATED"
+          								 , "REMOVED", "FIXED"
+          								 , "eff_date", "schedule"
+          								 ) |> as.list();
 
-          if (is.null(private$keyring_credentials)){
+          if (rlang::is_empty(private$keyring_credentials)){
           	message("No keyring credentials detected ...")
           	private$keyring_credentials <- list(
-          		keyring = readline(prompt = "... enter keyring name or leave blank: ") %>% { ifelse(stringi::stri_length(.) == 0, NULL, .) }
-          		, service = readline(prompt = "... enter keyring service or leave blank: ") %>% { ifelse(stringi::stri_length(.) == 0, NULL, .) }
-          		, username = readline(prompt = "... enter keyring username or leave blank: ") %>% { ifelse(stringi::stri_length(.) == 0, NULL, .) }
+          		keyring = readline(prompt = "... enter keyring name or leave blank: ") %>% {
+          			ifelse(stringi::stri_length(.) == 0, NULL, .) }
+          		, service = readline(prompt = "... enter keyring service or leave blank: ") %>% {
+          			ifelse(stringi::stri_length(.) == 0, NULL, .) }
+          		, username = readline(prompt = "... enter keyring username or leave blank: ") %>% {
+          			ifelse(stringi::stri_length(.) == 0, NULL, .) }
           		)
           }
 
           .changelog = list();
-          .changelog$content = query_adhoc(url = self$changelog_url, !!!private$keyring_credentials) %>%
-          											read_html() %>% xml_children() %>% last();
+          .changelog$content = query_adhoc(url = self$changelog_url, !!!private$keyring_credentials) |>
+          											xml2::read_html() |> xml2::xml_children() |> data.table::last();
           .changelog$explore = { # This entire code block navigates the structure of the retrieved page from the website
-            rbindlist({
-              .changelog$content %>% xml_find_all("//template[@slot='contents']") %>%
-                xml_children() %>% xml_find_all("//blockquote|//h1/*") %>%
-                map2(xml_name(.), ~tryCatch({
+            data.table::rbindlist({
+              .changelog$content |>
+            		xml2::xml_find_all("//template[@slot='contents']") |>
+                xml2::xml_children() |>
+            		xml2::xml_find_all("//blockquote|//h1/*") |>
+                purrr::map2(xml2::xml_name(.), ~tryCatch({
                   if (chatty){ message(.y) }
                   list(
-                    tag = xml_name(.x)
+                    tag = xml2::xml_name(.x)
                     , # {.y == "a"} | "XPATH search above (xml_find_all(...)) returns the '<a>' as the first child of the search path "//blockquote.
-                    vals = if(.y == "a"){ xml_attr(.x, "href") %>% stri_extract_first_regex("[0-9]+")
-                    	} else {
-                          sapply(xml_children(.x), xml_text) %>%
-                          stri_enc_toascii() %>%
-                          stri_split_fixed("\n", simplify = FALSE) %>% reduce(rbind) %>%
-                          stri_trim_both() %>% stri_replace_first_regex("[-]", "")
-                        }
+                    vals = if(.y == "a"){
+                    	xml2::xml_attr(.x, "href") |>
+                    	stringi::stri_extract_first_regex("[0-9]+")
+                    } else {
+                        sapply(xml2::xml_children(.x), xml_text) |>
+                        stringi::stri_enc_toascii() |>
+                        stringi::stri_split_fixed("\n", simplify = FALSE) |>
+                  			purrr::reduce(rbind) |>
+                        stringi::stri_trim_both() |>
+                  			stringi::stri_replace_first_regex("[-]", "")
+                      }
                     )}
                   , error = function(e){ }
                   , finally = ""
@@ -318,37 +321,45 @@ DBOE <- { R6::R6Class(
             })[
             , # "Unwrap" the HTML markup structure, matching tags with the text
             { c(.SD[, !c("tag")]
-              , xform.basis_vector(.SD$tag)[, map(.SD, cumsum)]
-              , xform.basis_vector(vals, bvec = keep(vals, ~.x %like% "^[A-Z]{5,15}$") %>% unique)
+              , book.of.workflow::logic_map(.SD$tag)[, purrr::map(.SD, cumsum)]
+              , book.of.workflow::logic_map(vals, bvec = purrr::keep(vals, ~.x %like% "^[A-Z]{5,15}$") |> unique())
               )}
             ][
             , # +{notification_date, sub_group} | Date of log entry on page, indicator of the changeset across each date of entry
-            `:=`(notification_date = first(vals), sub_group = cumsum(vals %like% "^[A-Z]{5,9}$"))
+            `:=`(notification_date = data.table::first(vals), sub_group = cumsum(vals %like% "^[A-Z]{5,9}$"))
             , by = c("a")
             ][][
             , c(
             	list(vals = vals)
               , # @TRANSFORMATION{ ADDED, CHANGED, DEPRECATED, REMOVED, FIXED } | For each group defined in the 'by' expression, return the cumulative maximum: this maps each of the changes under "vals" to the correct type of change.  This allows unnecessary rows to be removed in subsequent steps.
-              map(.SD[, !c("vals", "blockquote")], ~cummax(.x))
+              purrr::map(.SD[, !c("vals", "blockquote")], ~cummax(.x))
               )
             , by = .(a, sub_group, notification_date)
             ][
             # @FILTER | Remove rows that do not indicate a change type or where elements of 'vals' only have the change type (these are simply not needed at this point)
-            which(and(!vals %like% "[A-Z]{5,9}", data.table(ADDED, CHANGED, DEPRECATED, REMOVED, FIXED) %>% pmap_lgl(function(...){ sum(c(...)) > 0 })))
-            ][, modify_at(.SD, ls(.SD, pattern = "[A-Z]{5,9}"), as.logical)
+            and(!vals %like% "[A-Z]{5,9}"
+            		, data.table::data.table(ADDED, CHANGED, DEPRECATED, REMOVED, FIXED)|> purrr::map_lgl(function(...){ sum(c(...)) > 0 })
+            		) |> which()
+            ][, purrr::modify_at(.SD, ls(.SD, pattern = "[A-Z]{5,9}"), as.logical)
             ][, # +{eff_date} | When "schedule" is matched in 'vals', it is assumed a scheduled implementation date is given.  This code extracts that date if it exists or returns the log entry date if there is no match.
-            eff_date := { ifelse(
-              vals %ilike% "schedule"
-              , stri_extract_all_regex(vals, "([0-9]+[.]?)+", simplify = TRUE) %>% stri_replace_all_fixed(".", "", vectorize_all = FALSE)
-              , notification_date
-              )} %>% as.Date(format = "%Y%m%d")
+            eff_date := {
+            	ifelse(
+	              vals %ilike% "schedule"
+	              , stringi::stri_extract_all_regex(vals, "([0-9]+[.]?)+", simplify = TRUE) |>
+	              	stringi::stri_replace_all_fixed(".", "", vectorize_all = FALSE)
+	              , notification_date
+	              )
+	            } |> as.Date(format = "%Y%m%d")
             ][, # +{schedule}  | Chronology indicator
-              schedule := (sign(today() - eff_date)) %>% as.character %>% { set_names(c("FUTURE", "TODAY", "PAST"), as.character(-1:1))[.] }
-            ][] %>% setnames(c(1:2, 4), c("change_set_id", "change_det_id", "change_note"))
+              schedule := (sign(lubridate::today() - eff_date)) |> as.character() %>% {
+              	purrr::set_names(c("FUTURE", "TODAY", "PAST"), as.character(-1:1))[.]
+              }
+            ][] |>
+          	data.table::setnames(c(1:2, 4), c("change_set_id", "change_det_id", "change_note"))
           }
 
           # Set definition attributes for each column
-          iwalk(.dictionary, ~setattr(.changelog$explore[[.y]], "def", .x))
+          ipurrr::walk(.dictionary, ~data.table::setattr(.changelog$explore[[.y]], "def", .x))
 
           self$changelog <- .changelog;
 
@@ -363,11 +374,11 @@ DBOE <- { R6::R6Class(
         #' @return The class object, invisibly
         search.changelog = function(db, ..., retain = TRUE){
             # Create the output ====
-            output = dplyr::filter(.data = copy(self$changelog$explore), ...)[
+            output = dplyr::filter(.data = data.table::copy(self$changelog$explore), ...)[
               , self[[db]]$metamap[!is.na(tbl_name)
                 , list(
-                    change_obj = keep(tbl_name %>% unique, ~change_note %ilike% .x) %>% list %>%
-                    	modify_if(~identical(character(0), .x), ~"<Removed/Missing>")
+                    change_obj = purrr::keep(tbl_name %>% unique, ~change_note %ilike% .x) |> list() |>
+                    	purrr::modify_if(~identical(character(0), .x), ~"<Removed/Missing>")
                     , ADDED, CHANGED, DEPRECATED, REMOVED, FIXED
                     )
                 ]
@@ -378,15 +389,15 @@ DBOE <- { R6::R6Class(
             switch(
               class(retain)
               , "logical" = if (retain){
-                      if (!"search.history" %in% ls(envir = self)){ self$search.history <- new.env() }
-                      assign("search_" %s+% format(Sys.time(), "%Y.%m.%d_%H.%M.%S"), output, envir = self$search.history);
-                      invisible(self);
-                    } else { print(output); invisible(self) }
+                  if (!"search.history" %in% ls(envir = self)){ self$search.history <- new.env() }
+                  assign("search_" %s+% format(Sys.time(), "%Y.%m.%d_%H.%M.%S"), output, envir = self$search.history);
+                  invisible(self);
+                } else { print(output); invisible(self) }
               , "character" = {
-                    if (!"search.history" %in% ls(envir = self)){ self$search.history <- new.env() }
-                    assign(paste0(retain, "_", format(Sys.time(), "%Y.%m.%d_%H.%M.%S")), output, envir = self$search.history);
-                    invisible(self);
-                  }
+                  if (!"search.history" %in% ls(envir = self)){ self$search.history <- new.env() }
+                  assign(paste0(retain, "_", format(Sys.time(), "%Y.%m.%d_%H.%M.%S")), output, envir = self$search.history);
+                  invisible(self);
+                }
               , invisible(self)
               );
           },
@@ -408,31 +419,35 @@ DBOE <- { R6::R6Class(
               , preselect = ls(self$search.history)[1]
               , title = "Choose a previously made search"
               , multiple = FALSE
-              ) %T>% { .us <<- . } %>% get(envir = self$search.history)
-          } else { use.search <- use.search %T>% { .us <<- . } %>% get(envir = self$search.history) }
+              ) %T>% { .us <<- . } |>
+            	get(envir = self$search.history)
+          } else {
+          	use.search <- use.search %T>% { .us <<- . } |> get(envir = self$search.history)
+          }
 
           code_files %<>% purrr::set_names(
-            stri_replace_all_fixed(., "\\", "/", vectorize_all = FALSE) %>%
-              stri_replace_all_regex("[:]+", "", vectorize_all = FALSE)
+            stringi::stri_replace_all_fixed(., "\\", "/", vectorize_all = FALSE) %>%
+              stringi::stri_replace_all_regex("[:]+", "", vectorize_all = FALSE)
             );
 
           if (chatty){ message(length(code_files) %s+% " objects provided ...") }
-          code_files_content = imap_dfr(code_files, ~{
-          	list(file = .y, text = stri_read_lines(.x) %>% paste(collapse = " "))
-          	}) %>% setDT();
+          code_files_content = purrr::imap_dfr(code_files, ~{
+          		list(file = .y, text = stringi::stri_read_lines(.x) %>% paste(collapse = " "))
+          	})|>
+          	data.table::setDT();
 
-          .needle = use.search$change_obj %>% reduce(c) %>%
-          	discard(~.x %like% "Missing") %>%
-            rlang::list2(...) %>%
-          	unlist() %>% unique() %T>% {
-            	if (or(length(.) == 0, identical(character(0), .))){ message("No matches found: exiting ..."); return(0) }
-            }
+          .needle = use.search$change_obj |>
+          	purrr::reduce(c) %>%
+          	purrr::discard(~.x %like% "Missing") |>
+            rlang::list2(...) |>
+          	unlist() |>
+          	unique() %T>% { if (or(length(.) == 0, identical(character(0), .))){ message("No matches found: exiting ..."); return(0) }}
 
           if (chatty){ print(.us); print(code_files_content) }
 
           output = (code_files_content %look.for% paste(unlist(.needle), collapse = "|"));
 
-          if (!all(map_lgl(output, ~identical(character(), .x)))){
+          if (!all(purrr::map_lgl(output, ~identical(character(), .x)))){
 	          # Return the output depending on the class of argument 'retain' ====
 	          switch(
 	            class(retain)
@@ -462,27 +477,35 @@ DBOE <- { R6::R6Class(
         },
 				#' @description
 				#' \code{$make.virtual_database} creates a set of \code{\link[dplyr]{tbl}} objects in an environment
-				#' @param dboe A \code{DBOE} object
+				#'
 				#' @param conn_name The \code{DBOE} connection name to use
 				#' @param db_env The environment object where created objects should be stored
-				#' @return An assignable environment object with \code{\link[DBI]}-sourced \code{\link[dplyr]{tbl}}s (this cannot be R6-piped)
-				make.virtual_database = function(conn_name = names(self$conns), db_env = new.env()){
+				#' @param ... The names of objects to retrieve: retrieves all tables and views if left blank
+				#'
+				#' @return An assignable environment object with \code{DBI}-sourced \code{\link[dplyr]{tbl}}s
+				make.virtual_database = function(conn_name = names(self$conns), db_env = new.env(), ...){
 					db <- match.arg(conn_name);
 
-					c(self[[db]] %$% {
-						sys.tables[sys.schemas, on = "schema_id"][!is.na(tbl_name)] %$%
+					obj_queue <- rlang::enexprs(...) |> as.character();
+
+					self[[db]] %$% {
+						.tables <- sys.tables[sys.schemas, on = "schema_id"][!is.na(tbl_name)] %$% {
 							rlang::set_names(purrr::map2(dplyr::sql(schema_name), dplyr::sql(tbl_name), dbplyr::in_schema), tbl_name)
 						}
-						, self[[db]] %$% {
-							sys.views[sys.schemas, on = "schema_id"][!is.na(view_name)] %$%
-								rlang::set_names(purrr::map2(dplyr::sql(schema_name), dplyr::sql(view_name), dbplyr::in_schema), view_name)
-							}) %>%
+
+						.views <- sys.views[sys.schemas, on = "schema_id"][!is.na(view_name)] %$% {
+							rlang::set_names(purrr::map2(dplyr::sql(schema_name), dplyr::sql(view_name), dbplyr::in_schema), view_name)
+						}
+
+						all_objs <- c(.tables, .view);
+
+						obj_queue <- unique(intersect(obj_queue) %||% all_objs);
+					} %>%
 						.[!duplicated(names(.))] |>
 						purrr::map(purrr::possibly(~dplyr::tbl(src = self$conns[[db]], from = .x), otherwise = "Could not connect")) |>
 						list2env(envir = db_env)
 				}
       )}
-    , private = list(keyring_credentials = NULL, changelog.url = "http://datacatalog.alliance.local/en/datacatalog/edwchangelog")
     , active = { list(
     		#' @field report \code{$report} returns a dataset showing what files should be checked for detailed changes in which database objects. The code cross-reference search selected is stored as an attribute of the output labeled "search_name".
         report = function(){
@@ -503,19 +526,20 @@ DBOE <- { R6::R6Class(
 
           xref_search[, { c(
             # Element I: Path to source file with GIT as root
-            { path %>%
-                stri_extract_all_regex("([A-Za-z#&\\-_/ ]+([A-Za-z#&_ ]+)?).*.R$", simplify = FALSE) %>%
-                { paste(stri_sub(., 1, 20), stri_sub(., stri_length(.) - 40, stri_length(.)), sep = "~") } %>%
-                reduce(rbind) %>% list
+            { path |>
+                stringi::stri_extract_all_regex("([A-Za-z#&\\-_/ ]+([A-Za-z#&_ ]+)?).*.R$", simplify = FALSE) %>% {
+                	paste(stringi::stri_sub(., 1, 20), stringi::stri_sub(., stringi::stri_length(.) - 40, stringi::stri_length(.)), sep = "~")
+                } |>
+                purrr::reduce(rbind) |> list()
             }
             , # Element II: Occurrence map of which database objects are referenced in each source file
-            { xform.basis_vector(code, bvec = attr(xref_search, "needle"), regex = TRUE)[
+            { book.of.features::logic_map(code, bvec = attr(xref_search, "needle"), regex = TRUE)[
               # Post-test operation: Remove zero-valued columns, and create a row filter for zero-valued rows
-              , c(discard(.SD, ~sum(.x) == 0), list(row.fltr = apply(.SD, 1, sum) > 0))
+              , c(purrr::discard(.SD, ~sum(.x) == 0), list(row.fltr = apply(.SD, 1, sum) > 0))
             ]}
-            )}][(row.fltr), !"row.fltr"] %>%
-          setnames(1L, "file_path") %>%
-          setattr("search_name", .search_name)
+            )}][(row.fltr), !"row.fltr"] |>
+          data.table::setnames(1L, "file_path") |>
+          data.table::setattr("search_name", .search_name)
         },
         #' @field log.searches \code{$log.searches} shows what changelog searches have been made
         log.searches = function(){ if ("search.history" %in% ls(self)){ ls(self$search.history) } else { message("No history to search") }},
@@ -524,9 +548,11 @@ DBOE <- { R6::R6Class(
         #' @field credentials The values passed during initialization for use in \code{\link[keyring]{key_get}}
         credentials = function(i){
 	      		if (missing(i)){
-	      			return(private$keyring_credentials) } else {
+	      			return(private$keyring_credentials)
+	      		} else {
 	      			private$keyring_credentials <- i;
-	      			message(paste0("New Credentials:\n   ", paste(names(private$keyring_credentials), private$keyring_credentials, sep = " -> ", collapse = "\n   ")));
+	      			message(paste0("New Credentials:\n   "
+	      										 , paste(names(private$keyring_credentials), private$keyring_credentials, sep = " -> ", collapse = "\n   ")));
 	      		}},
         #' @field changelog_url The URL to use for the Enterprise Data Warehouse changelog
         changelog_url = function(i){
@@ -536,6 +562,7 @@ DBOE <- { R6::R6Class(
       				message("New Changelog URL:  " %s+% private$changelog.url);
       			}}
         )}
+    , private = list(keyring_credentials = NULL, changelog.url = NULL)
     )}
 
 query_adhoc <- function(url, ...){
@@ -550,23 +577,23 @@ query_adhoc <- function(url, ...){
 
 	.args = rlang::list2(...)
 	keyring_args = .args[intersect(names(.args), c("username", "password", "keyring", "service"))]
-	auth_type = .args[intersect(names(.args), c("type"))] %>% { ifelse(is_empty(.), "basic", unlist(.)) }
+	auth_type = .args[intersect(names(.args), c("type"))] %>% { ifelse(rlang::is_empty(.), "basic", unlist(.)) }
 	password	= NULL;
 	auth.data = NULL;
 
 	logi_vec = list(
-		is_lan = any(stri_detect_regex(str = url, pattern = "(intranet[.])?alliance(healthplan|bhc).+(org|local)"))
-		, is_keyless = is_empty(keyring_args)
+		is_lan = any(stringi::stri_detect_regex(str = url, pattern = "(intranet[.])?alliance(healthplan|bhc).+(org|local)"))
+		, is_keyless = rlang::is_empty(keyring_args)
 		);
 
 	# Check for intranet URLs and set authentication objects if found
-	auth.data <- authenticate(
+	auth.data <- httr::authenticate(
 		user = ifelse(logi_vec$is_lan, keyring_args$username %||% {"ALLIANCE\\" %s+% Sys.getenv("USERNAME")}, keyring_args$username)
 		, password = if (logi_vec$is_keyless){ NULL } else { rlang::inject(keyring::key_get(!!!keyring_args)) }
 		, type = ifelse(logi_vec$is_lan, "ntlm", auth_type)
 		)
 
-  GET(url = url, eval(auth.data)) %$% content %>% rawToChar()
+  httr::GET(url = url, eval(auth.data)) %$% content %>% rawToChar()
 }
 
 `%look.for%` <- function(i, x){
@@ -579,25 +606,27 @@ query_adhoc <- function(url, ...){
 #' @export
 
   if (is.environment(i)){ if (rlang::env_has(i, "metamap")){ i <- i$metamap }}
-  if (!is.data.table(i)){ i <- as.data.table(i) }
+  if (!data.table::is.data.table(i)){ i <- data.table::as.data.table(i) }
 
-  .hits = i[, map(.SD, ~{
-    .needle = .x;
-    .haystack = x;
-    .test_1 = which(.needle %in% .haystack)
-    .test_2 = sapply(.haystack, function(.straw){ .needle %ilike% .straw }) %>% as.data.table %>% apply(1, any) %>% which
-    c(.test_1, .test_2) %>% unique %>% sort %>% na.omit
-  }) %>% unlist(use.names = FALSE) %>% na.omit];
+  .hits = i[, purrr::map(.SD, ~{
+	    .needle = .x;
+	    .haystack = x;
+	    .test_1 = which(.needle %in% .haystack)
+	    .test_2 = sapply(.haystack, function(.straw){ .needle %ilike% .straw }) |>
+	    						data.table::as.data.table() |> apply(1, any) |> which()
+	    c(.test_1, .test_2) |> unique() |> sort() |> stats::na.omit()
+	  }) |>
+	  unlist(use.names = FALSE) |> stats::na.omit()
+  ];
 
   # Verify that results exists, or exit if not
   if (identical(integer(0), .hits)){
     message("[FAIL]: <" %s+% paste(x, collapse = ", ") %s+% "> not found or failed to find matches.");
     return(0);
   }
-  i[(.hits)] %>% setkeyv(intersect(c("database", "schema_name", "tbl_name", "proc_name"), names(.))) %>% {
+  i[(.hits)] %>% data.table::setkeyv(intersect(c("database", "schema_name", "tbl_name", "proc_name"), names(.))) %>% {
     .out = .;
-
-    if ("col_names" %in% names(.)){ .out[!is.na(col_name), .(col_names = list(c(col_name))), by = c(key(.out))] } else { .out }
+    if ("col_names" %in% names(.)){ .out[!is.na(col_name), .(col_names = list(c(col_name))), by = c(data.table::key(.out))] } else { .out }
   }
 }
 
