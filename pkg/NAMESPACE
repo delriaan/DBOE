@@ -3,6 +3,7 @@
 export("%look.for%")
 export(DBOE)
 export(query_adhoc)
+import(data.table)
 importFrom(magrittr,"%$%")
 importFrom(magrittr,"%>%")
 importFrom(magrittr,"%T>%")

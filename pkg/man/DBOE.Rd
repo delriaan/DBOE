@@ -195,7 +195,7 @@ The class object, invisibly
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{DBOE$make.virtual_database(
   conn_name = names(self$conns),
-  db_env = new.env(),
+  db_env = rlang::caller_env(),
   ...
 )}\if{html}{\out{</div>}}
 }
@@ -207,7 +207,7 @@ The class object, invisibly
 
 \item{\code{db_env}}{The environment object where created objects should be stored}
 
-\item{\code{...}}{The names of objects to retrieve: retrieves all tables and views if left blank}
+\item{\code{...}}{The names of objects to retrieve: retrieves all tables and views if left blank.  If given as named arguments, the name becomes the local object name}
 }
 \if{html}{\out{</div>}}
 }

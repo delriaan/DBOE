@@ -11,6 +11,7 @@
 #' @importFrom stringi %s+%
 #' @importFrom magrittr %>% %$% %T>%
 #' @importFrom purrr reduce
+#' @import data.table
 #'
 #' @export
 DBOE <- { R6::R6Class(
@@ -470,15 +471,12 @@ DBOE <- { R6::R6Class(
 				#'
 				#' @param conn_name The \code{DBOE} connection name to use
 				#' @param db_env The environment object where created objects should be stored
-				#' @param ... The names of objects to retrieve: retrieves all tables and views if left blank
+				#' @param ... The names of objects to retrieve: retrieves all tables and views if left blank.  If given as named arguments, the name becomes the local object name
 				#'
 				#' @return An assignable environment object with \code{DBI}-sourced \code{\link[dplyr]{tbl}}s
-				make.virtual_database = function(conn_name = names(self$conns), db_env = new.env(), ...){
+				make.virtual_database = function(conn_name = names(self$conns), db_env = rlang::caller_env(), ...){
 					db <- match.arg(conn_name);
-
-					obj_queue <- rlang::enexprs(...) |> as.character();
-
-					self[[db]] %$% {
+					all_objs <- self[[db]] %$% {
 						.tables <- sys.tables[sys.schemas, on = "schema_id"][!is.na(tbl_name)] %$% {
 							rlang::set_names(purrr::map2(dplyr::sql(schema_name), dplyr::sql(tbl_name), dbplyr::in_schema), tbl_name)
 						}
@@ -487,13 +485,14 @@ DBOE <- { R6::R6Class(
 							rlang::set_names(purrr::map2(dplyr::sql(schema_name), dplyr::sql(view_name), dbplyr::in_schema), view_name)
 						}
 
-						all_objs <- c(.tables, .view);
+						c(.tables, .views) |> names() |> purrr::set_names()
+					}
+					obj_queue <- rlang::enexprs(..., .named = TRUE) |> purrr::map(rlang::as_label) |> unlist() %||% all_objs;
+					obj_queue[obj_queue %in% all_objs] |>
+						purrr::discard(duplicated) |>
+						purrr::iwalk(purrr::possibly(~assign(.y, dplyr::tbl(src = self$conns[[db]], from = .x), envir = db_env), otherwise = "Could not connect"));
 
-						obj_queue <- unique(intersect(obj_queue) %||% all_objs);
-					} %>%
-						.[!duplicated(names(.))] |>
-						purrr::map(purrr::possibly(~dplyr::tbl(src = self$conns[[db]], from = .x), otherwise = "Could not connect")) |>
-						list2env(envir = db_env)
+					invisible(self)
 				}
       )}
     , active = { list(
