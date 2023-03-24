@@ -55,3 +55,5 @@ tic.log() %>% reduce(c);
 #
 # ~FINALIZE ====
 keyring::keyring_lock("TFS_GIT")
+
+# pkgdown::build_site(pkg = "pkg", override = list(destination = "../docs"))
