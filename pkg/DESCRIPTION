@@ -16,11 +16,7 @@ Imports:
 	, magrittr
 	, rlang
 	, DBI
-	, dplyr
 	, httr
-	, xml2
 	, keyring
-	, lubridate
 	, tictoc
-	, book.of.features
 RoxygenNote: 7.2.3

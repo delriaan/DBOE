@@ -10,7 +10,6 @@ It also provides methods to retrieve information from the data catalog: specific
 \note{
 The workflow should look like the following:\cr \code{DBOE$new(dsn = , credentials = )\{$get.metadata()\{$get.xdep(db = )\{$get.changelog()\{$search.changelog(db = , ...) | crossref.code(code_files = , use.search = "c")\{; dboe$report\}\}\}\}\}}
 }
-\concept{changelog}
 \concept{metadata}
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
@@ -22,15 +21,7 @@ The workflow should look like the following:\cr \code{DBOE$new(dsn = , credentia
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
-\item{\code{report}}{\code{$report} returns a dataset showing what files should be checked for detailed changes in which database objects. The code cross-reference search selected is stored as an attribute of the output labeled "search_name".}
-
-\item{\code{log.searches}}{\code{$log.searches} shows what changelog searches have been made}
-
-\item{\code{xref.searches}}{\code{$xref.searches} lists what code cross-reference searches have been made}
-
 \item{\code{credentials}}{The values passed during initialization for use in \code{\link[keyring]{key_get}}}
-
-\item{\code{changelog_url}}{The URL to use for the Enterprise Data Warehouse changelog}
 }
 \if{html}{\out{</div>}}
 }
@@ -40,9 +31,6 @@ The workflow should look like the following:\cr \code{DBOE$new(dsn = , credentia
 \item \href{#method-DBOE-new}{\code{DBOE$new()}}
 \item \href{#method-DBOE-get.metadata}{\code{DBOE$get.metadata()}}
 \item \href{#method-DBOE-get.xdep}{\code{DBOE$get.xdep()}}
-\item \href{#method-DBOE-get.changelog}{\code{DBOE$get.changelog()}}
-\item \href{#method-DBOE-search.changelog}{\code{DBOE$search.changelog()}}
-\item \href{#method-DBOE-crossref.code}{\code{DBOE$crossref.code()}}
 \item \href{#method-DBOE-make.virtual_database}{\code{DBOE$make.virtual_database()}}
 \item \href{#method-DBOE-clone}{\code{DBOE$clone()}}
 }
@@ -95,7 +83,7 @@ The class object, invisibly
 \if{html}{\out{<a id="method-DBOE-get.xdep"></a>}}
 \if{latex}{\out{\hypertarget{method-DBOE-get.xdep}{}}}
 \subsection{Method \code{get.xdep()}}{
-\code{get.xdep()} retrieves cross-database dependencies for endpoints provided in \code{self$conns}
+\code{get.xdep()} retrieves cross-database dependencies for endpoints provided in \code{self$conns}.  Results are saved as attributes to either of \code{sys.views} or code{sys.procedures}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{DBOE$get.xdep(db)}\if{html}{\out{</div>}}
 }
@@ -104,82 +92,6 @@ The class object, invisibly
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{db}}{(string, symbol) The name of the database for which cross-database dependencies will be searched}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-The class object, invisibly
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-DBOE-get.changelog"></a>}}
-\if{latex}{\out{\hypertarget{method-DBOE-get.changelog}{}}}
-\subsection{Method \code{get.changelog()}}{
-\code{$get.changelog()} retrieves the content of the \href{http://datacatalog.alliance.local/en/datacatalog/edwchangelog}{EDW changelog}, parses it, and transforms it into a tabular format making it fit to be compared against database metadata and source code.  This, along with the HTTP response content itself are stored in a class-member list named \code{$changelog} with the following members: \cr
-\describe{
-   \item{content}{The HTML markup of the <body> of the retrieved content as an XML document pointer}
-   \item{explore}{A \code{\link[data.table]{data.table}} object containing the parsed and transformed elements of the changelog markup.  Each column and the entire object itself is provided with descriptive attributes}
-}
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{DBOE$get.changelog(chatty = FALSE)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{chatty}}{(logical) When \code{TRUE}, additional execution messages are sent to the console}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-The class object, invisibly
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-DBOE-search.changelog"></a>}}
-\if{latex}{\out{\hypertarget{method-DBOE-search.changelog}{}}}
-\subsection{Method \code{search.changelog()}}{
-\code{$search.changelog()} executes a search on the object returned from the call to class method \code{$get.changelog()}
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{DBOE$search.changelog(db, ..., retain = TRUE)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{db}}{(string) The name of the database for which changes are sought}
-
-\item{\code{...}}{Expressions to filter the changelog object via \code{\link[dplyr]{filter}}}
-
-\item{\code{retain}}{(logical) When \code{TRUE}, the results are saved in \code{self$search.history}; if a string, the results are assigned to an object of the same name in \code{self$search.history}.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-The class object, invisibly
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-DBOE-crossref.code"></a>}}
-\if{latex}{\out{\hypertarget{method-DBOE-crossref.code}{}}}
-\subsection{Method \code{crossref.code()}}{
-\code{$crossref.code()} attempts to match the changelog against both the database metadata and source files (provided by path and name in \code{code_files})
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{DBOE$crossref.code(code_files, use.search, retain = TRUE, chatty = FALSE, ...)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{code_files}}{(string[]) A vector of fully-qualified file paths}
-
-\item{\code{use.search}}{(object) When not \code{NULL} the provided object provides changelog search results}
-
-\item{\code{retain}}{(logical) When \code{TRUE}, the results are saved in \code{self$xref.history}; if a string, the results are assigned to an object of the same name in \code{self$xref.history}.}
-
-\item{\code{chatty}}{(logical) When \code{TRUE}, additional execution messages are sent to the console}
-
-\item{\code{...}}{Additional names of objects to search: useful when there's a suspicion of deleted objects missing from metadata}
 }
 \if{html}{\out{</div>}}
 }

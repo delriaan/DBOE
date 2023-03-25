@@ -17,7 +17,7 @@ StripTrailingWhitespace: Yes
 
 BuildType: Package
 PackageUseDevtools: Yes
-PackagePath: C:/Users/cgeorge/Documents/ImperialGit/DBOE/pkg
+PackagePath: D:/Sideloaded Appz/OneDrive/Documents/GitHub/DBOE/pkg
 PackageInstallArgs: --no-multiarch --with-keep.source
 PackageRoxygenize: rd,collate,namespace
 
