@@ -52,7 +52,11 @@ DBOE <- { R6::R6Class(
 
             schema.filter <- "^(db[_]|sys|infor|mdm|guest)"
 
-            req.objs <- iterators::iter("sys." %s+% c("tables", "columns", "schemas", "procedures", "views", "types", "synonyms"));
+
+            req.objs <- list(
+            	tsql = "sys." %s+% c("tables", "columns", "schemas", "procedures", "views", "types", "synonyms")
+            	, mysql = "INFORMATION_SCHEMA" %s+% c("tables", "columns", "views")
+            	)[[1]] |> iterators::iter();
 
             check.etl_obj <- function(obj){
           		if (!exists(obj, envir = proxy_env)){ message(sprintf("<%s> Failed to retrieve %s", this.db, obj)) }
