@@ -40,7 +40,11 @@ DBOE <- { R6::R6Class(
         #' @family metadata
         #' @return The class object, invisibly
         get.metadata = function(conns = self$conns, chatty = FALSE){
-        	require(data.table, quietly = TRUE)
+          req.objs <- list(
+          	tsql = "sys." %s+% c("tables", "columns", "schemas", "procedures", "views", "types", "synonyms")
+          	, mysql = "INFORMATION_SCHEMA" %s+% c("tables", "columns", "views")
+          	)[[1]] |> iterators::iter();
+
           purrr::iwalk(conns, ~{
           	# An ODBC connection for each value in .y must be created to use this mapper as-is.
             proxy_env <- new.env();
@@ -50,13 +54,7 @@ DBOE <- { R6::R6Class(
             tictoc::tic("\tMetadata -> " %s+% this.db);
             assign(.y, proxy_env, envir = self);
 
-            schema.filter <- "^(db[_]|sys|infor|mdm|guest)"
-
-
-            req.objs <- list(
-            	tsql = "sys." %s+% c("tables", "columns", "schemas", "procedures", "views", "types", "synonyms")
-            	, mysql = "INFORMATION_SCHEMA" %s+% c("tables", "columns", "views")
-            	)[[1]] |> iterators::iter();
+            # schema.filter <- "^(db[_]|sys|infor|mdm|guest)"
 
             check.etl_obj <- function(obj){
           		if (!exists(obj, envir = proxy_env)){ message(sprintf("<%s> Failed to retrieve %s", this.db, obj)) }
@@ -89,7 +87,9 @@ DBOE <- { R6::R6Class(
 	              		setnames("name", "proc_name") |>
 	              		setkey(schema_id, proc_name)
                 }
-            proxy_env$sys.procedures <- { DBI::dbGetQuery(neo.conn, "SELECT [name], [schema_id], [object_id], proc_create_date = [create_date], proc_upd_date = [modify_date] FROM sys.procedures")} |> post.op();
+            proxy_env$sys.procedures <- {
+            	DBI::dbGetQuery(neo.conn, "SELECT [name], [schema_id], [object_id], proc_create_date = [create_date], proc_upd_date = [modify_date] FROM sys.procedures")
+            } |> post.op();
             check.etl_obj(iterators::nextElem(req.objs))
 
             # Views ====
