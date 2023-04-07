@@ -104,20 +104,25 @@ chatty <- TRUE;
 			          			data.table::setkeyv(i, cols = intersect(c("schema_id", "parent_object_id", "object_id", "table_schema", "proc_name", "column_name"), names(i) |> tolower()))
 			          		} else { i }
             		}
-							)[[j]] |> eval()
+							)[[ifelse(j %in% c("tables", "columns", "views", "schemas"), "default", j)]] |> eval()
            }
 
-					# purrr::iwalk(db_conns, ~{
+          undebug(post.op)
+
+          purrr::iwalk(db_conns, ~{
 						# An ODBC connection for each value in .y must be created to use this mapper as-is.
 						proxy_env <- self <- new.env();
+
 						this.db <- { attr(.x, "odbc") |>
 								attr("connection.string") |>
 								stringi::stri_split_fixed(";", simplify = TRUE) |>
 								purrr::keep(~grepl("DATABASE", .x)) |>
 								stringi::stri_split_fixed("=", simplify = TRUE) |>
 								magrittr::extract(2)
-							} %||% .x@info$dbname
-						this.dbms <- class(.x)
+							} %||% .x@info$dbname;
+
+						this.dbms <- class(.x);
+
 						neo.conn <- .x;
 						assign(.y, proxy_env, envir = self);
 
@@ -134,33 +139,44 @@ chatty <- TRUE;
 	          			)
 	          	)} %>% .[max(c(which(names(.) == this.dbms || grepl("ODBC", names(.))), 1))];
 
-						req.objs <- dbms_types[[1]]$meta;
-
-            tictoc::tic("\tMetadata -> " %s+% this.db);
+						req.objs <- dbms_types[[1]]$meta |> purrr::set_names();
 
             message(sprintf("Processing metadata for <%s>", this.db));
+            tictoc::tic("\tMetadata -> " %s+% this.db);
 
             # Tables, Columns, Schemas (VALIDATE: MySQL[1] MSSQL[?]) ====
-            purrr::keep(req.objs, ~.x %in% c("schemas", "tables", "columns", "views")) |>
+            purrr::keep(req.objs, ~.x %in% c("schemas", "tables", "columns", "views"))  |>
             	purrr::iwalk(~{
 	            	x <- .x;
-			          assign(.x, dbms_types[[1]]$data |> eval() |> post.op(ifelse(x == "views", x, "default")), envir = proxy_env)
-			          check.etl_obj(req.objs[[.y]])
-	            })
+	            	y <- paste0(ifelse(this.dbms=="MySQL", "", "sys."), req.objs[.x]);
+			          .out <- dbms_types[[1]]$data |> eval();
 
-            # Procs (VALIDATE: MySQL[1] MSSQL[?]) ====
-						assign(dbms_types[[1]]$meta[4], dbms_types[[1]]$procedures |> eval() |> post.op("procedures")
-									 , envir = proxy_env)
+			          if ((nrow(.out) %||% 0) > 0){
+			          	assign(y, post.op(.out, x), envir = proxy_env)
+			          	check.etl_obj(y);
+			          }
+	            });
 
-						check.etl_obj(req.objs[4]);
+            # Procs (VALIDATE: MySQL[1] MSSQL[1]) ====
+						.this <- dbms_types[[1]]$procedures |> eval();
 
-            # Types (VALIDATE: MySQL[1] MSSQL[?]) ====
+						if ((nrow(.this) %||% 0) > 0){
+							paste0(ifelse(this.dbms=="MySQL", "", "sys."), dbms_types[[1]]$meta[4]) |>
+								assign(value = post.op(.this, "procedures"), envir = proxy_env)
+							check.etl_obj(paste0(ifelse(this.dbms=="MySQL", "", "sys."), req.objs[5]));
+						}
+
+            # Types (VALIDATE: MySQL[1] MSSQL[1]) ====
             if (this.dbms != "MySQL"){
-            	assign("sys.types", DBI::dbGetQuery(neo.conn, "SELECT [name], system_type_id, schema_id FROM sys.types") |> post.op("types"), envir = proxy_env);
-            	check.etl_obj(iterators::nextElem(req.objs));
+            	.this <- DBI::dbGetQuery(neo.conn, "SELECT [name], system_type_id, schema_id FROM sys.types");
+
+            	if ((nrow(.this) %||% 0) > 0){
+            		assign("sys.types", post.op(.this, "types"), envir = proxy_env);
+	            	check.etl_obj(paste0("sys.", req.objs[6]));
+            	}
             }
 
-						# Combined Metadata (VALIDATE: MySQL[1] MSSQL[?]) ====
+						# Combined Metadata (VALIDATE: MySQL[1] MSSQL[1]) ====
             assign(this.db, this.db, envir = proxy_env)
 
             metamap_action <- rlang::quos(
@@ -216,16 +232,16 @@ chatty <- TRUE;
 	            	}
             	);
 
-            .meta_idx <- c(grepl("microsoft", this.db, ignore.case = TRUE) || (neo.conn |> attr("isMySQL") %||% FALSE)
+            .meta_idx <- c(grepl("microsoft|odbcconnection", this.dbms, ignore.case = TRUE)
             							 , grepl("mysql", this.db, ignore.case = TRUE)
             							 ) |> which();
 
             rlang::eval_tidy(metamap_action[[.meta_idx]]);
 
-            # Active bindings (VALIDATE: MySQL[?] MSSQL[?]) ====
+            # Active bindings (VALIDATE: MySQL[1] MSSQL[1]) ====
             message("Creating active bindings")
 
-            # Stored procedures (VALIDATE: MySQL[1] MSSQL[?])
+            # Stored procedures (VALIDATE: MySQL[1] MSSQL[1])
 						if ((nrow(proxy_env$sys.procedures) %||% 0) > 0){
 							.temp <- proxy_env$sys.procedures[
 						          !is.na(proc_name)
@@ -264,7 +280,7 @@ chatty <- TRUE;
 							  })
 						}
 
-            # Views (VALIDATE: MySQL[1] MSSQL[?])
+            # Views (VALIDATE: MySQL[1] MSSQL[1])
 						if ((nrow(proxy_env$sys.views) %||% 0) > 0){
 	            .temp <- proxy_env$sys.views[
 							          !is.na(view_name)
@@ -297,7 +313,7 @@ chatty <- TRUE;
 							  });
           	}
 
-            # Tables and Columns (VALIDATE: MySQL[1] MSSQL[?])
+            # Tables and Columns (VALIDATE: MySQL[1] MSSQL[1])
 						.temp <- proxy_env$metamap[!is.na(tbl_name)] |>
 								split(by = "tbl_name") |>
 								purrr::map(~{
@@ -316,7 +332,7 @@ chatty <- TRUE;
 						});
 
 						tictoc::toc(log = TRUE, quiet = !chatty);
-          # });
+          });
 
           invisible(self);
 					# })

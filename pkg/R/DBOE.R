@@ -40,112 +40,223 @@ DBOE <- { R6::R6Class(
         #' @family metadata
         #' @return The class object, invisibly
         get.metadata = function(conns = self$conns, chatty = FALSE){
-          req.objs <- list(
-          	tsql = "sys." %s+% c("tables", "columns", "schemas", "procedures", "views", "types", "synonyms")
-          	, mysql = "INFORMATION_SCHEMA" %s+% c("tables", "columns", "views")
-          	)[[1]] |> iterators::iter();
+          # Helper function
+          check.etl_obj <- function(obj){
+          		if (!hasName(proxy_env, obj)){
+          			message(sprintf("<%s> Failed to retrieve %s", this.db, obj))
+          		}
+          }
 
-          purrr::iwalk(conns, ~{
-          	# An ODBC connection for each value in .y must be created to use this mapper as-is.
-            proxy_env <- new.env();
-            this.db = .x@info$dbname;
-            neo.conn = .x;
+					# Helper function
+          post.op <- function(i, j, dbms = names(dbms_types)){
+          	force(dbms);
+          	force(i);
 
-            tictoc::tic("\tMetadata -> " %s+% this.db);
-            assign(.y, proxy_env, envir = self);
+						rlang::exprs(
+							default = {
+								data.table::setDT(i) |>
+			        		data.table::setnames(
+			        			ifelse(dbms != "MySQL", "name", "TABLE_NAME")
+			        			, paste0(ifelse(j == "tables", "tbl", ifelse(j == "columns", "col", "schema")), "_name")
+			        			) %>%
+									data.table::setnames(names(.) |> tolower());
 
-            # schema.filter <- "^(db[_]|sys|infor|mdm|guest)"
+		        		if (j != "schemas"){
+		          			data.table::setkeyv(
+		          				i, cols = intersect(c("schema_id", "parent_object_id", "object_id"
+		          															, "table_schema", "table_name", "column_name")
+		          														, names(i) |> tolower()))
+		          		} else { i }
+	        		}
+							, views = {
+									i <- if (dbms != "MySQL"){
+												data.table::as.data.table(i)[
+				                proxy_env$sys.schemas[!(schema_name %ilike% schema.filter), c("schema_id", "schema_name")]
+				                , on = "schema_id", nomatch = 0
+				                ][, view_def := purrr::map2_chr(schema_name, name, ~{
+				                    DBI::dbGetQuery(neo.conn, statement = sprintf("EXEC sp_helptext N'%s.%s.%s'", this.db, .x, .y)) |>
+				                    unlist() |>
+				                		purrr::reduce(paste0)
+				                  }) |>
+				                	purrr::modify_if(rlang::is_empty, .f = ~"##NO DEF##")
+				                ]
+											} else {
+												data.table::as.data.table(i) %>%
+													data.table::setnames(names(.) |> tolower()) |>
+													data.table::setnames("view_definition", "view_def") |>
+				                	purrr::modify_at("view_def", .f = purrr::modify_if, rlang::is_empty, ~"##NO DEF##")
+											}
 
-            check.etl_obj <- function(obj){
-          		if (!exists(obj, envir = proxy_env)){ message(sprintf("<%s> Failed to retrieve %s", this.db, obj)) }
-          	}
+		          		data.table::setnames(i, ifelse(dbms != "MySQL", "name", "table_name"), "view_name")
 
-            post.op <- function(i, j = NULL){
-              		i <- as.data.table(i)
-              		if (j != "schemas"){ setkeyv(i, cols = intersect(c("schema_id", "parent_object_id", "object_id"), names(i))) }
-              		setnames(i, "name", paste0(ifelse(j == "tables", "tbl", ifelse(j == "columns", "col", "schema")), "_name"))
-              	}
+			        		if (j != "schemas"){
+			          			data.table::setkeyv(i, cols = intersect(c("schema_id", "parent_object_id", "object_id", "table_schema", "view_name", "column_name"), names(i) |> tolower()))
+			          		} else { i }
+		        		}
+							, types = {
+									data.table::as.data.table(i)[, .(data_type = paste(name, collapse = ", ")), by = c("schema_id", "system_type_id")] |>
+            			data.table::setkey(schema_id, system_type_id)
+								}
+              , procedures = {
+              		i <- if (dbms != "MySQL"){
+		              			data.table::as.data.table(i)[
+					                proxy_env$sys.schemas[!(schema_name %ilike% "^(sys|infor|mdm|guest)"), c("schema_id", "schema_name")]
+					                , on = "schema_id", nomatch = 0
+					                ][, proc_def := purrr::map2(schema_name, name, ~{
+					                    DBI::dbGetQuery(neo.conn, statement = sprintf("EXEC sp_helptext N'%s.%s.%s'", this.db, .x, .y)) |>
+					                      unlist() |> purrr::reduce(paste0)
+					                  }) |> unlist()
+					                ] |>
+			            			data.table::setkey(schema_id, proc_name)
+			              		} else {
+													data.table::as.data.table(i) %>%
+														data.table::setnames(names(.) |> tolower()) |>
+														data.table::setnames("routine_definition", "proc_def") |>
+					                	purrr::modify_at("proc_def", .f = purrr::modify_if, rlang::is_empty, ~"##NO DEF##")
+			              		}
+	            		data.table::setnames(i, ifelse(dbms != "MySQL", "name", "routine_name"), "proc_name")
+
+			        		if (j != "schemas"){
+			          			data.table::setkeyv(i, cols = intersect(c("schema_id", "parent_object_id", "object_id", "table_schema", "proc_name", "column_name"), names(i) |> tolower()))
+			          		} else { i }
+            		}
+							)[[ifelse(j %in% c("tables", "columns", "views", "schemas"), "default", j)]] |> eval()
+           }
+
+          purrr::iwalk(db_conns, ~{
+						# An ODBC connection for each value in .y must be created to use this mapper as-is.
+						proxy_env <- new.env()
+
+						this.db <- { attr(.x, "odbc") |>
+								attr("connection.string") |>
+								stringi::stri_split_fixed(";", simplify = TRUE) |>
+								purrr::keep(~grepl("DATABASE", .x)) |>
+								stringi::stri_split_fixed("=", simplify = TRUE) |>
+								magrittr::extract(2)
+							} %||% .x@info$dbname;
+
+						this.dbms <- class(.x);
+
+						neo.conn <- .x;
+						assign(.y, proxy_env, envir = self);
+
+	  				dbms_types <- { list(
+	          	`Microsoft SQL Server` = rlang::exprs(
+	          			meta = !!c("tables", "columns", "views", "schemas", "procedures", "types", "synonyms")
+	          			, data = DBI::dbReadTable(conn = neo.conn, name = DBI::Id(schema = "sys", table = x))
+	          			, procedures = DBI::dbGetQuery(conn = neo.conn, "SELECT [name], [schema_id], [object_id], proc_create_date = [create_date], proc_upd_date = [modify_date] FROM sys.procedures")
+	          			)
+	          	, MySQL = rlang::exprs(
+	          			meta = !!c("tables", "columns", "views", "routines")
+	          			, data = DBI::dbReadTable(conn = neo.conn, name = DBI::Id(schema = "INFORMATION_schema", table = x))
+	          			, procedures = DBI::dbGetQuery(conn = neo.conn, "SELECT * FROM INFORMATION_SCHEMA.routines")
+	          			)
+	          	)} %>% .[max(c(which(names(.) == this.dbms || grepl("ODBC", names(.))), 1))];
+
+						req.objs <- dbms_types[[1]]$meta |> purrr::set_names();
 
             message(sprintf("Processing metadata for <%s>", this.db));
+            tictoc::tic("\tMetadata -> " %s+% this.db);
 
-            # Tables, Columns, Schemas ====
-            purrr::walk(c("tables", "columns", "schemas"), ~{
-            	assign(paste0("sys.", .x), DBI::dbReadTable(neo.conn, DBI::Id(schema = "sys", table = .x)) |> post.op(.x), envir = proxy_env)
-	            check.etl_obj(iterators::nextElem(req.objs))
-            })
+            # Tables, Columns, Schemas (VALIDATE: MySQL[1] MSSQL[?]) ====
+            purrr::keep(req.objs, ~.x %in% c("schemas", "tables", "columns", "views"))  |>
+            	purrr::iwalk(~{
+	            	x <- .x;
+	            	y <- paste0(ifelse(this.dbms=="MySQL", "", "sys."), req.objs[.x]);
+			          .out <- dbms_types[[1]]$data |> eval();
 
-            # Procs ====
-            post.op <- function(i){
-                  as.data.table(i)[
-	                  proxy_env$sys.schemas[!(schema_name %ilike% "^(sys|infor|mdm|guest)"), c("schema_id", "schema_name")]
-	                  , on = "schema_id", nomatch = 0
-	                  ][, proc_def := purrr::map2(schema_name, name, ~{
-	                      DBI::dbGetQuery(neo.conn, statement = sprintf("EXEC sp_helptext N'%s.%s.%s'", this.db, .x, .y)) |>
-	                        unlist() |> purrr::reduce(paste0)
-	                    }) |> unlist()
-	                  ] |>
-	              		setnames("name", "proc_name") |>
-	              		setkey(schema_id, proc_name)
-                }
-            proxy_env$sys.procedures <- {
-            	DBI::dbGetQuery(neo.conn, "SELECT [name], [schema_id], [object_id], proc_create_date = [create_date], proc_upd_date = [modify_date] FROM sys.procedures")
-            } |> post.op();
-            check.etl_obj(iterators::nextElem(req.objs))
+			          if ((nrow(.out) %||% 0) > 0){
+			          	assign(y, post.op(.out, x), envir = proxy_env)
+			          	check.etl_obj(y);
+			          }
+	            });
 
-            # Views ====
-            post.op <- function(i){
-                  as.data.table(i)[
-                    proxy_env$sys.schemas[!(schema_name %ilike% schema.filter), c("schema_id", "schema_name")]
-                    , on = "schema_id", nomatch = 0
-                    ][, view_def := purrr::map2_chr(schema_name, name, ~{
-                        DBI::dbGetQuery(neo.conn, statement = sprintf("EXEC sp_helptext N'%s.%s.%s'", this.db, .x, .y)) |>
-                        unlist() |>
-                    		purrr::reduce(paste0)
-                      }) |>
-                    	purrr::modify_if(~rlang::is_empty(.x), .f = ~"##NO DEF##", .else = eval)
-                    ] |>
-              		setnames("name", "view_name") |>
-              		setkey(schema_id, view_name)
-                }
-            proxy_env$sys.views <- { DBI::dbGetQuery(neo.conn, "SELECT [name], [schema_id], [object_id], view_create_date = [create_date], view_upd_date = [modify_date] FROM sys.views")} |> post.op()
+            # Procs (VALIDATE: MySQL[1] MSSQL[1]) ====
+						.this <- dbms_types[[1]]$procedures |> eval();
 
-            check.etl_obj(iterators::nextElem(req.objs))
+						if ((nrow(.this) %||% 0) > 0){
+							paste0(ifelse(this.dbms=="MySQL", "", "sys."), dbms_types[[1]]$meta[4]) |>
+								assign(value = post.op(.this, "procedures"), envir = proxy_env)
+							check.etl_obj(paste0(ifelse(this.dbms=="MySQL", "", "sys."), req.objs[5]));
+						}
 
-            # Types ====
-        		post.op <- function(i){
-            		as.data.table(i)[, .(data_type = paste(name, collapse = ", ")), by = c("schema_id", "system_type_id")] |>
-            		setkey(schema_id, system_type_id)
+            # Types (VALIDATE: MySQL[1] MSSQL[1]) ====
+            if (this.dbms != "MySQL"){
+            	.this <- DBI::dbGetQuery(neo.conn, "SELECT [name], system_type_id, schema_id FROM sys.types");
+
+            	if ((nrow(.this) %||% 0) > 0){
+            		assign("sys.types", post.op(.this, "types"), envir = proxy_env);
+	            	check.etl_obj(paste0("sys.", req.objs[6]));
             	}
-            proxy_env$sys.types <- { DBI::dbGetQuery(neo.conn, "SELECT [name], system_type_id, schema_id FROM sys.types") |> post.op()}
-            check.etl_obj(iterators::nextElem(req.objs))
+            }
 
-            # Combined Metadata ====
+						# Combined Metadata (VALIDATE: MySQL[1] MSSQL[1]) ====
             assign(this.db, this.db, envir = proxy_env)
 
-            proxy_env %$% {
-            	metamap <- sys.tables[
-	              sys.schemas[, !"principal_id"]
-	              , on = "schema_id", .(tbl_name, schema_name, object_id)
-	              ][
-	              sys.columns[sys.types, on = "system_type_id", .(col_name, column_id, data_type, system_type_id, max_length
-	                , precision, scale, is_nullable, is_identity, is_computed, is_xml_document, object_id)]
-	              , on = c("object_id"), nomatch = 0
-	              ][, c("object_id", "database", "col_meta") := list(
-	              			NULL, this.db
-	                    , apply(
-	                    		X = data.table(system_type_id, max_length, precision, scale, is_nullable, is_identity, is_computed, is_xml_document)
-	                    		, MARGIN = 1
-	                    		, FUN = list
-	                    		, simplify = FALSE
-	                    		))
-	              ][, !c("system_type_id", "max_length", "precision", "scale", "is_nullable", "is_identity", "is_computed", "is_xml_document")] |>
-	              setcolorder(c("database", "tbl_name", "col_name")) |>
-	              setkey(tbl_name, column_id);
-            }
-            # Active bindings ====
+            metamap_action <- rlang::quos(
+            	`Microsoft SQL Server` = proxy_env %$% {
+            		metamap <- sys.tables[
+		              sys.schemas[, !"principal_id"]
+		              , on = "schema_id", .(tbl_name, schema_name, object_id)
+		              ][
+		              sys.columns[sys.types, on = "system_type_id", .(col_name, column_id, data_type, system_type_id, max_length
+		                , precision, scale, is_nullable, is_identity, is_computed, is_xml_document, object_id)]
+		              , on = c("object_id"), nomatch = 0
+		              ][
+		              , c("object_id", "database", "col_meta") := { list(NULL, this.db
+		                  , apply(
+		                  		X = data.table(system_type_id, max_length, precision, scale, is_nullable
+		                  									 , is_identity, is_computed, is_xml_document)
+		                  		, MARGIN = 1
+		                  		, FUN = list
+		                  		, simplify = FALSE
+		                  		))
+		              		}
+		              ][, !c("system_type_id", "max_length", "precision", "scale"
+		              			 , "is_nullable", "is_identity", "is_computed", "is_xml_document")
+	              	] |>
+	              data.table::setcolorder(c("database", "tbl_name", "col_name")) |>
+	              data.table::setkey(tbl_name, column_id);
+	            }
+            	, MySQL = proxy_env %$% {
+            			metamap <- columns[
+	            		, .(database = this.db
+		            			, column_id = column_key
+			            		, column_type, ordinal_position
+			            		, col_meta = .SD[, .(
+				            			character_maximum_length
+				            			, character_octet_length
+				            			, precision = numeric_precision
+				            			, scale = numeric_scale
+				            			, column_default
+				            			, is_nullable
+				            			, extra
+				            			, privileges
+				            			, column_comment
+				            			, generation_expression
+				            			)] |> purrr::array_branch(1)
+			            	), by = .(table_schema, schema_name, col_name = column_name, data_type)
+		            	][
+		            	tables[, .(table_schema, schema_name, table_type, max_data_length, table_comment)]
+		            	, on = c("table_schema", "schema_name")
+		            	] |>
+            			data.table::setnames(c(1,2), c("schema_name", "tbl_name")) |>
+	            		data.table::setcolorder(c("database", "tbl_name", "col_name")) |>
+	            		data.table::setkey(tbl_name, column_id);
+	            	}
+            	);
+
+            .meta_idx <- c(grepl("microsoft|odbcconnection", this.dbms, ignore.case = TRUE)
+            							 , grepl("mysql", this.db, ignore.case = TRUE)
+            							 ) |> which();
+
+            rlang::eval_tidy(metamap_action[[.meta_idx]]);
+
+            # Active bindings (VALIDATE: MySQL[1] MSSQL[1]) ====
             message("Creating active bindings")
-            # Stored procedures
-						if (nrow(proxy_env$sys.procedures) > 0){
+
+            # Stored procedures (VALIDATE: MySQL[1] MSSQL[1])
+						if ((nrow(proxy_env$sys.procedures) %||% 0) > 0){
 							.temp <- proxy_env$sys.procedures[
 						          !is.na(proc_name)
 						          , list(list(.SD[, schema_name:proc_def]))
@@ -163,8 +274,28 @@ DBOE <- { R6::R6Class(
 							  })
 						}
 
-            # Views
-						if (nrow(proxy_env$sys.views) > 0){
+						if ((nrow(proxy_env$routines) %||% 0) > 0){
+							.temp <- proxy_env$routines[
+						          !is.na(proc_name)
+						          , list(proc_created = created
+						          			 , list(.SD[, .(proc_def, routine_comment)])
+						          			 )
+						          , by = .(proc_name, schema_name = routine_schema)
+						          ] %$% rlang::set_names(V2, proc_name);
+
+							proxy_env$.proc_dm <- rlang::as_data_mask(.temp)
+
+							ls(.temp, pattern = "^[a-z]") |> purrr::walk(~{
+							    rlang::expr(makeActiveBinding(
+							      sym = !!.x
+							      , fun = function(){ rlang::eval_tidy(quo(.data[[!!.x]]), data = !!(proxy_env$.proc_dm)) }
+							      , env = proxy_env
+							      )) |> eval()
+							  })
+						}
+
+            # Views (VALIDATE: MySQL[1] MSSQL[1])
+						if ((nrow(proxy_env$sys.views) %||% 0) > 0){
 	            .temp <- proxy_env$sys.views[
 							          !is.na(view_name)
 							          , list(list(.SD[, schema_name:view_def]))
@@ -182,7 +313,21 @@ DBOE <- { R6::R6Class(
 							  });
           	}
 
-            # Tables and columns
+						if ((nrow(proxy_env$views) %||% 0) > 0){
+	            .temp <- proxy_env$views[!is.na(view_name), .(view_name, schema_name = table_schema, view_def)]
+
+							proxy_env$.view_dm <- rlang::as_data_mask(.temp);
+
+							ls(.temp, pattern = "^[a-z]") |> purrr::walk(~{
+							    rlang::expr(makeActiveBinding(
+							      sym = !!.x
+							      , fun = function(){ rlang::eval_tidy(quo(.data[[!!.x]]), data = !!(proxy_env$.view_dm)) }
+							      , env = proxy_env
+							      )) |> eval()
+							  });
+          	}
+
+            # Tables and Columns (VALIDATE: MySQL[1] MSSQL[1])
 						.temp <- proxy_env$metamap[!is.na(tbl_name)] |>
 								split(by = "tbl_name") |>
 								purrr::map(~{
