@@ -140,10 +140,12 @@ DBOE <- { R6::R6Class(
 								purrr::keep(~grepl("DATABASE", .x)) |>
 								stringi::stri_split_fixed("=", simplify = TRUE) |>
 								magrittr::extract(2)
-							}
+						}
+
 						if (is.na(this.db)){ this.db <- .x@info$dbname }
 
 						this.dbms <- class(.x);
+						if (this.dbms != "MySQL"){ this.dbms <- "Microsoft SQL Server"}
 
 						neo.conn <- private$connections[[.y]] <- .x;
 						assign(.y, proxy_env, envir = self);
