@@ -14,7 +14,10 @@ db_conns <- list()
 db_conns$MySQL <- dbConnect(odbc::odbc(), "MySQL", user = "delriaan"
 														, password = keyring::key_get(service = "MySQL", username = "delriaan", keyring = "R"))
 
-db_conns$GW2DB <- RODBCDBI::dbConnect(RODBCDBI::ODBC(), "GW2DB"
+db_conns$GW2DB <- dbConnect(RODBCDBI::ODBC(), "GW2DB"
+														# , server = "imperialtower"
+														# , database = "GW2DB"
+														# , case = "nochange"
 														, user = "imperial_agent"
 														, password = keyring::key_get(service = "MSSQL", username = "imperial_agent", keyring = "R"))
 
@@ -338,14 +341,13 @@ chatty <- TRUE;
 					# })
         }
 
-
-
 # load_unloaded(DBOE)
-# X <- DBOE$new(list(GW2DB = DBI::dbConnect(odbc::odbc(), "GW2DB")))
-# X$get.metadata()
+X <- DBOE$new()$get.metadata(!!!db_conns)
 # X$GW2DB$dim_character |> head()
 # GW2DB <- new.env()
 # X$make.virtual_database("GW2DB", db_env = GW2DB)
 # View(X)
 
-dbDisconnect(db_conns)
+purrr::walk(db_conns, dbDisconnect)
+rm(db_conns)
+

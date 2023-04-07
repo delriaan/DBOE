@@ -4,9 +4,6 @@
 #' \code{DBOE} facilitates the navigation of SQL Server DBMS objects by way of retrieving the metatadata objects.
 #' It also provides methods to retrieve information from the data catalog: specifically, the \href{http://datacatalog.alliance.local/en/datacatalog/edwchangelog}{EDW changelog}.  Once retrieved, changes can be compared against user-supplied source code
 #'
-#' @note
-#' The workflow should look like the following:\cr \code{DBOE$new(dsn = , credentials = )\{$get.metadata()\{$get.xdep(db = )\{$get.changelog()\{$search.changelog(db = , ...) | crossref.code(code_files = , use.search = "c")\{; dboe$report\}\}\}\}\}}
-#'
 #' @importFrom rlang %||%
 #' @importFrom stringi %s+%
 #' @importFrom magrittr %>% %$% %T>%
@@ -20,37 +17,34 @@ DBOE <- { R6::R6Class(
     classname = "DBOE"
     , lock_objects = FALSE
     , public = { list(
-        #' @field conns A named list of DBI connections given as <database name> = <DBI connection>
-        conns = NULL,
         #' @description
         #' Initialize the class object
-        #' @param conns A named list with key-value elements (e.g., DSN_name = default_database_name): this can be set (\code{self$dsn <- list(...)}) before using DBMS-related methods
-        #' @param keyring_credentials A list holding the \code{\link[keyring]{keyring}} name, service, and username for the secured password
         #' @return The class object, invisibly
-        initialize = function(conns, keyring_credentials = NULL){
-          self$conns <- conns;
-          private$keyring_credentials <- keyring_credentials
-
+        initialize = function(){
           invisible(self);
         },
         #' @description
         #' \code{$get.metadata()} retrieves metadata information for the database pointed to by argument \code{conns}. Once metadata has been retrieved, metadata can be accessed for tables, views, and stored procedures using the following access method: \code{<DBOE obj>$<database name>$<table/view/proc name>}
-        #' @param conns A named list of DBI connections given as <database name> = <DBI connection>
+        #' @param ... \code{\link[rlang]{dots_list}}: one or more DBI/ODBC connection objects.  Unnamed entries will be given generic names.
         #' @param chatty (logical) When \code{TRUE}, additional execution messages are sent to the console
         #' @family metadata
         #' @return The class object, invisibly
-        get.metadata = function(conns = self$conns, chatty = FALSE){
+        get.metadata = function(..., chatty = FALSE){
           # Helper function
           check.etl_obj <- function(obj){
-          		if (!hasName(proxy_env, obj)){
-          			message(sprintf("<%s> Failed to retrieve %s", this.db, obj))
-          		}
+	          proxy_env <- rlang::caller_env()$proxy_env;
+	          this.db <- rlang::caller_env()$this.db
+
+        		if (!hasName(proxy_env, obj)){
+        			message(sprintf("<%s> Failed to retrieve %s", this.db, obj))
+        		}
           }
 
 					# Helper function
-          post.op <- function(i, j, dbms = names(dbms_types)){
+          post.op <- function(i, j, dbms){
           	force(dbms);
           	force(i);
+          	proxy_env <- rlang::caller_env()$proxy_env;
 
 						rlang::exprs(
 							default = {
@@ -123,7 +117,20 @@ DBOE <- { R6::R6Class(
 							)[[ifelse(j %in% c("tables", "columns", "views", "schemas"), "default", j)]] |> eval()
            }
 
-          purrr::iwalk(db_conns, ~{
+          # Execution
+          .queue <- rlang::dots_list(
+          		...
+          		, .ignore_empty = "none"
+          		, .homonyms = "last"
+          		, .check_assign = TRUE
+          		);
+
+          names(.queue) <- ifelse(names(.queue) == ""
+          					 , paste0("db_", stringi::stri_pad_left(seq_along(names(.queue)), width = 2, pad = "0"))
+          					 , names(.queue)
+          					 );
+
+          	purrr::iwalk(.queue, ~{
 						# An ODBC connection for each value in .y must be created to use this mapper as-is.
 						proxy_env <- new.env()
 
@@ -133,11 +140,12 @@ DBOE <- { R6::R6Class(
 								purrr::keep(~grepl("DATABASE", .x)) |>
 								stringi::stri_split_fixed("=", simplify = TRUE) |>
 								magrittr::extract(2)
-							} %||% .x@info$dbname;
+							}
+						if (is.na(this.db)){ this.db <- .x@info$dbname }
 
 						this.dbms <- class(.x);
 
-						neo.conn <- .x;
+						neo.conn <- private$connections[[.y]] <- .x;
 						assign(.y, proxy_env, envir = self);
 
 	  				dbms_types <- { list(
@@ -166,7 +174,7 @@ DBOE <- { R6::R6Class(
 			          .out <- dbms_types[[1]]$data |> eval();
 
 			          if ((nrow(.out) %||% 0) > 0){
-			          	assign(y, post.op(.out, x), envir = proxy_env)
+			          	assign(y, post.op(i = .out, j = x, dbms = names(dbms_types)), envir = proxy_env)
 			          	check.etl_obj(y);
 			          }
 	            });
@@ -176,7 +184,8 @@ DBOE <- { R6::R6Class(
 
 						if ((nrow(.this) %||% 0) > 0){
 							paste0(ifelse(this.dbms=="MySQL", "", "sys."), dbms_types[[1]]$meta[4]) |>
-								assign(value = post.op(.this, "procedures"), envir = proxy_env)
+								assign(value = post.op(i = .this, j = "procedures", dbms = names(dbms_types)), envir = proxy_env)
+
 							check.etl_obj(paste0(ifelse(this.dbms=="MySQL", "", "sys."), req.objs[5]));
 						}
 
@@ -185,7 +194,8 @@ DBOE <- { R6::R6Class(
             	.this <- DBI::dbGetQuery(neo.conn, "SELECT [name], system_type_id, schema_id FROM sys.types");
 
             	if ((nrow(.this) %||% 0) > 0){
-            		assign("sys.types", post.op(.this, "types"), envir = proxy_env);
+            		assign("sys.types", post.op(i = .this, j = "types", dbms = names(dbms_types)), envir = proxy_env);
+
 	            	check.etl_obj(paste0("sys.", req.objs[6]));
             	}
             }
@@ -350,122 +360,64 @@ DBOE <- { R6::R6Class(
 
           invisible(self);
         },
-        #' @description
-        #' \code{get.xdep()} retrieves cross-database dependencies for endpoints provided in \code{self$conns}.  Results are saved as attributes to either of \code{sys.views} or code{sys.procedures}.
-        #' @param db (string, symbol) The name of the database for which cross-database dependencies will be searched
-        #' @family metadata
-        #' @return The class object, invisibly
-        get.xdep = function(db){
-        	if (missing(db)){ stop("Missing argument `db`") } else { db <- as.character(rlang::enexpr(db)) }
-
-        	db_list <- names(self$conns)
-
-          cross_dbs <- mget(purrr::discard(db_list, ~.x == db), envir = self);
-
-          this_db <- self[[db]];
-
-          .queue <- { list(
-	          	sys.views = this_db$sys.views %$% purrr::set_names(view_def, view_name)
-	          	, sys.procedures = this_db$sys.procedures %$% purrr::set_names(proc_def, proc_name)
-	          	)}
-
-          # Cross-refs for views and stored procedures ...
-      		purrr::imap(.queue, ~{
-      			.needle = .x;
-      			.nm = .y;
-
-	          tryCatch({
-              purrr::imap(cross_dbs, ~{
-                .x %$% { c(sys.tables$tbl_name, sys.views$tbl_name)} |>
-                  purrr::keep(~ .needle %ilike% .x) |>
-              		purrr::compact()
-                }) |> setattr(x = this_db[[.y]], name = "dependencies")
-            	}, error = function(e){ message(db %s+% ": Error in checking for cross-references against " %s+% .nm) })
-      		});
-
-          invisible(self);
-        },
 				#' @description
 				#' \code{$make.virtual_database} creates a set of \code{\link[dplyr]{tbl}} objects in an environment
-				#' @param conn_name The \code{DBOE} connection name to use
+				#' @param conn The name of a metadata environment (created after calling \code{$get.metadata() })
 				#' @param db_env The environment object where created objects should be stored
 				#' @param ... The names of objects to retrieve: retrieves all tables and views if left blank.  If given as named arguments, the name becomes the local object name
 				#' @return An assignable environment object with \code{DBI}-sourced \code{\link[dplyr]{tbl}}s
-				make.virtual_database = function(conn_name = names(self$conns), db_env = rlang::caller_env(), ...){
-					db <- match.arg(conn_name);
+				make.virtual_database = function(conn, db_env = rlang::caller_env(), ...){
+					db <- purrr::modify_if(conn, is.numeric, ~names(private$connections)[.x]);
+
 					all_objs <- self[[db]] %$% {
 						.tables <- sys.tables[sys.schemas, on = "schema_id"][!is.na(tbl_name)] %$% {
-							rlang::set_names(purrr::map2(dplyr::sql(schema_name), dplyr::sql(tbl_name), dbplyr::in_schema), tbl_name)
+							rlang::set_names(
+								purrr::map2(dplyr::sql(schema_name), dplyr::sql(tbl_name), dbplyr::in_schema)
+								, tbl_name
+								)
 						}
 
 						.views <- sys.views[sys.schemas, on = "schema_id"][!is.na(view_name)] %$% {
-							rlang::set_names(purrr::map2(dplyr::sql(schema_name), dplyr::sql(view_name), dbplyr::in_schema), view_name)
+							rlang::set_names(
+								purrr::map2(dplyr::sql(schema_name), dplyr::sql(view_name), dbplyr::in_schema)
+								, view_name
+								)
 						}
 
 						c(.tables, .views) |> names() |> purrr::set_names()
 					}
-					obj_queue <- rlang::enexprs(..., .named = TRUE) |> purrr::map(rlang::as_label) |> unlist() %||% all_objs;
+
+					obj_queue <- rlang::enexprs(..., .named = TRUE) |>
+						purrr::map(rlang::as_label) |>
+						unlist() %||% all_objs;
+
 					obj_queue[obj_queue %in% all_objs] |>
 						purrr::discard(duplicated) |>
-						purrr::iwalk(purrr::possibly(~assign(.y, dplyr::tbl(src = self$conns[[db]], from = .x), envir = db_env), otherwise = "Could not connect"));
+						purrr::iwalk(purrr::possibly(~{
+							assign(.y, dplyr::tbl(src = private$connections[[db]], from = .x), envir = db_env)
+							}, otherwise = "Could not connect"));
 
 					invisible(self)
 				}
       )}
     , active = { list(
-        #' @field credentials The values passed during initialization for use in \code{\link[keyring]{key_get}}
-        credentials = function(i){
-	      		if (missing(i)){
-	      			return(private$keyring_credentials)
-	      		} else {
-	      			private$keyring_credentials <- i;
-	      			message(paste0("New Credentials:\n   "
-	      										 , paste(names(private$keyring_credentials), private$keyring_credentials, sep = " -> ", collapse = "\n   ")));
-	      		}}
-        )}
-    , private = list(keyring_credentials = NULL)
+    		#' @field connection.list Sets or returns a list of saved connections
+    		connection.list = function(i = NULL){
+    				if (is.list(i)){ private$connections <- i } else { return(private$connections) }
+    			}
+    		)}
+    , private = { list(connections = NULL)}
     )}
-
-query_adhoc <- function(url, ...){
-#' Retrieve the contents of a query
-#'
-#' \code{query_adhoc} calls \code{\link[httr]{GET}}, and passes the credentials referenced by argument \code{cred}.  The response is converted to class 'character' before returning the output
-#' @param url (string) The URL to call
-#' @param ... Arguments to be passed to \code{\link[keyring]{key_get}}
-#'
-#' @return The content of the URL
-#' @export
-
-	.args = rlang::list2(...)
-
-	keyring_args = .args[intersect(names(.args), c("username", "password", "keyring", "service"))]
-	auth_type = .args[intersect(names(.args), c("type"))] %>% { ifelse(rlang::is_empty(.), "basic", unlist(.)) }
-
-	password	= NULL;
-	auth.data = NULL;
-
-	logi_vec = list(
-		is_lan = any(stringi::stri_detect_regex(str = url, pattern = "(intranet[.])?alliance(healthplan|bhc).+(org|local)"))
-		, is_keyless = rlang::is_empty(keyring_args)
-		);
-
-	# Check for intranet URLs and set authentication objects if found
-	auth.data <- httr::authenticate(
-		user = ifelse(logi_vec$is_lan, keyring_args$username %||% {"ALLIANCE\\" %s+% Sys.getenv("USERNAME")}, keyring_args$username)
-		, password = if (logi_vec$is_keyless){ NULL } else { rlang::inject(keyring::key_get(!!!keyring_args)) }
-		, type = ifelse(logi_vec$is_lan, "ntlm", auth_type)
-		)
-
-  httr::GET(url = url, eval(auth.data)) %$% content %>% rawToChar()
-}
-
+#
 `%look.for%` <- function(i, x){
-#' Look for a Database Object Names
+#' Look for a Database Metadata
 #'
-#' @param i (object) A data.frame, data.table, or coercible containing DBMS object names
+#' The \code{\%look.for\%} operator searches the provided metadata environment or \code{metamap} object in such an environment for the pattern passed to \code{x}
+#' @param i (object) A data.frame, data.table, or coercible containing object names
 #' @param x (string[]) A vector of REGEX patterns or exact names to use for matching against database object names
 #'
 #' @return A \code{\link[data.table]{data.table}} object with the items that were found, if any
+#'
 #' @export
 
   if (is.environment(i)){ if (rlang::env_has(i, "metamap")){ i <- i$metamap }}
@@ -487,6 +439,7 @@ query_adhoc <- function(url, ...){
     message("[FAIL]: <" %s+% paste(x, collapse = ", ") %s+% "> not found or failed to find matches.");
     return(0);
   }
+
   i[(.hits)] %>% setkeyv(intersect(c("database", "schema_name", "tbl_name", "proc_name"), names(.))) %>% {
     .out = .;
     if ("col_names" %in% names(.)){ .out[!is.na(col_name), .(col_names = list(c(col_name))), by = c(key(.out))] } else { .out }
