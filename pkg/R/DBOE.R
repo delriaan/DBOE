@@ -32,19 +32,17 @@ DBOE <- { R6::R6Class(
         get.metadata = function(..., chatty = FALSE){
           # Helper function
           check.etl_obj <- function(obj){
-	          proxy_env <- rlang::caller_env()$proxy_env;
-	          this.db <- rlang::caller_env()$this.db
+	          proxy_env <- rlang::caller_env() %$% proxy_env;
+	          this.db <- rlang::caller_env() %$% this.db;
 
-        		if (!hasName(proxy_env, obj)){
-        			message(sprintf("<%s> Failed to retrieve %s", this.db, obj))
-        		}
+        		if (!hasName(proxy_env, obj)){ message(sprintf("<%s> Failed to retrieve %s", this.db, obj)) }
           }
 
 					# Helper function
           post.op <- function(i, j, dbms){
           	force(dbms);
           	force(i);
-          	proxy_env <- rlang::caller_env()$proxy_env;
+          	proxy_env <- rlang::caller_env() %$% proxy_env;
 
 						rlang::exprs(
 							default = {
@@ -152,7 +150,7 @@ DBOE <- { R6::R6Class(
 
 	  				dbms_types <- { list(
 	          	`Microsoft SQL Server` = rlang::exprs(
-	          			meta = !!c("tables", "columns", "views", "schemas", "procedures", "types", "synonyms")
+	          			meta = !!c("tables", "columns", "views", "procedures", "schemas", "types", "synonyms")
 	          			, data = DBI::dbReadTable(conn = neo.conn, name = DBI::Id(schema = "sys", table = x))
 	          			, procedures = DBI::dbGetQuery(conn = neo.conn, "SELECT [name], [schema_id], [object_id], proc_create_date = [create_date], proc_upd_date = [modify_date] FROM sys.procedures")
 	          			)
@@ -161,7 +159,7 @@ DBOE <- { R6::R6Class(
 	          			, data = DBI::dbReadTable(conn = neo.conn, name = DBI::Id(schema = "INFORMATION_schema", table = x))
 	          			, procedures = DBI::dbGetQuery(conn = neo.conn, "SELECT * FROM INFORMATION_SCHEMA.routines")
 	          			)
-	          	)} %>% .[max(c(which(names(.) == this.dbms || grepl("ODBC", names(.))), 1))];
+	          	)} %>% .[max(c(which(names(.) == this.dbms | grepl("ODBC", names(.))), 1))];
 
 						req.objs <- dbms_types[[1]]$meta |> purrr::set_names();
 
@@ -185,10 +183,15 @@ DBOE <- { R6::R6Class(
 						.this <- dbms_types[[1]]$procedures |> eval();
 
 						if ((nrow(.this) %||% 0) > 0){
-							paste0(ifelse(this.dbms=="MySQL", "", "sys."), dbms_types[[1]]$meta[4]) |>
+							paste0(ifelse(this.dbms=="MySQL", "", "sys.")
+										 , dbms_types[[1]]$meta[which(grepl("procedure|routine", req.objs))]
+										 ) |>
 								assign(value = post.op(i = .this, j = "procedures", dbms = names(dbms_types)), envir = proxy_env)
 
-							check.etl_obj(paste0(ifelse(this.dbms=="MySQL", "", "sys."), req.objs[5]));
+							check.etl_obj(paste0(
+								ifelse(this.dbms=="MySQL", "", "sys.")
+								, req.objs[which(grepl("procedure|routine", req.objs))]
+								));
 						}
 
             # Types (VALIDATE: MySQL[1] MSSQL[1]) ====
@@ -198,12 +201,12 @@ DBOE <- { R6::R6Class(
             	if ((nrow(.this) %||% 0) > 0){
             		assign("sys.types", post.op(i = .this, j = "types", dbms = names(dbms_types)), envir = proxy_env);
 
-	            	check.etl_obj(paste0("sys.", req.objs[6]));
+	            	check.etl_obj(paste0("sys.", req.objs[which(grepl("types", req.objs))]));
             	}
             }
 
 						# Combined Metadata (VALIDATE: MySQL[1] MSSQL[1]) ====
-            assign(this.db, this.db, envir = proxy_env)
+            assign(this.db, proxy_env, envir = self);
 
             metamap_action <- rlang::quos(
             	`Microsoft SQL Server` = proxy_env %$% {
@@ -211,8 +214,12 @@ DBOE <- { R6::R6Class(
 		              sys.schemas[, !"principal_id"]
 		              , on = "schema_id", .(tbl_name, schema_name, object_id)
 		              ][
-		              sys.columns[sys.types, on = "system_type_id", .(col_name, column_id, data_type, system_type_id, max_length
-		                , precision, scale, is_nullable, is_identity, is_computed, is_xml_document, object_id)]
+		              sys.columns[
+		              	sys.types
+		              	, on = "system_type_id"
+		              	, .(col_name, column_id, data_type, system_type_id, max_length
+		              			, precision, scale, is_nullable, is_identity, is_computed, is_xml_document, object_id
+		              			)]
 		              , on = c("object_id"), nomatch = 0
 		              ][
 		              , c("object_id", "database", "col_meta") := { list(NULL, this.db
@@ -247,20 +254,19 @@ DBOE <- { R6::R6Class(
 				            			, column_comment
 				            			, generation_expression
 				            			)] |> purrr::array_branch(1)
-			            	), by = .(table_schema, schema_name, col_name = column_name, data_type)
+			            	), by = .(table_schema, col_name = column_name, data_type)
 		            	][
-		            	tables[, .(table_schema, schema_name, table_type, max_data_length, table_comment)]
-		            	, on = c("table_schema", "schema_name")
+		            	tables[, .(table_schema, tbl_name, table_type, max_data_length, table_comment)] |> unique()
+		            	, on = c("table_schema"), nomatch = 0, allow.cartesian = TRUE
 		            	] |>
-            			data.table::setnames(c(1,2), c("schema_name", "tbl_name")) |>
+            			data.table::setnames("table_schema", "schema_name") |>
 	            		data.table::setcolorder(c("database", "tbl_name", "col_name")) |>
 	            		data.table::setkey(tbl_name, column_id);
 	            	}
             	);
 
             .meta_idx <- c(grepl("microsoft|odbcconnection", this.dbms, ignore.case = TRUE)
-            							 , grepl("mysql", this.db, ignore.case = TRUE)
-            							 ) |> which();
+            							 , grepl("mysql", this.db, ignore.case = TRUE)) |> which();
 
             rlang::eval_tidy(metamap_action[[.meta_idx]]);
 
@@ -326,7 +332,10 @@ DBOE <- { R6::R6Class(
           	}
 
 						if ((nrow(proxy_env$views) %||% 0) > 0){
-	            .temp <- proxy_env$views[!is.na(view_name), .(view_name, schema_name = table_schema, view_def)]
+	            .temp <- proxy_env$views[
+	            					!is.na(schema_name)
+	            					, .(view_name = schema_name, schema_name = table_schema, view_definition)
+	            					]
 
 							proxy_env$.view_dm <- rlang::as_data_mask(.temp);
 
