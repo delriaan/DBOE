@@ -7,21 +7,11 @@
 \code{DBOE} facilitates the navigation of SQL Server DBMS objects by way of retrieving the metatadata objects.
 It also provides methods to retrieve information from the data catalog: specifically, the \href{http://datacatalog.alliance.local/en/datacatalog/edwchangelog}{EDW changelog}.  Once retrieved, changes can be compared against user-supplied source code
 }
-\note{
-The workflow should look like the following:\cr \code{DBOE$new(dsn = , credentials = )\{$get.metadata()\{$get.xdep(db = )\{$get.changelog()\{$search.changelog(db = , ...) | crossref.code(code_files = , use.search = "c")\{; dboe$report\}\}\}\}\}}
-}
 \concept{metadata}
-\section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{conns}}{A named list of DBI connections given as <database name> = <DBI connection>}
-}
-\if{html}{\out{</div>}}
-}
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
-\item{\code{credentials}}{The values passed during initialization for use in \code{\link[keyring]{key_get}}}
+\item{\code{connection.list}}{Sets or returns a list of saved connections}
 }
 \if{html}{\out{</div>}}
 }
@@ -30,7 +20,6 @@ The workflow should look like the following:\cr \code{DBOE$new(dsn = , credentia
 \itemize{
 \item \href{#method-DBOE-new}{\code{DBOE$new()}}
 \item \href{#method-DBOE-get.metadata}{\code{DBOE$get.metadata()}}
-\item \href{#method-DBOE-get.xdep}{\code{DBOE$get.xdep()}}
 \item \href{#method-DBOE-make.virtual_database}{\code{DBOE$make.virtual_database()}}
 \item \href{#method-DBOE-clone}{\code{DBOE$clone()}}
 }
@@ -41,18 +30,9 @@ The workflow should look like the following:\cr \code{DBOE$new(dsn = , credentia
 \subsection{Method \code{new()}}{
 Initialize the class object
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{DBOE$new(conns, keyring_credentials = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{DBOE$new()}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{conns}}{A named list with key-value elements (e.g., DSN_name = default_database_name): this can be set (\code{self$dsn <- list(...)}) before using DBMS-related methods}
-
-\item{\code{keyring_credentials}}{A list holding the \code{\link[keyring]{keyring}} name, service, and username for the secured password}
-}
-\if{html}{\out{</div>}}
-}
 \subsection{Returns}{
 The class object, invisibly
 }
@@ -63,35 +43,15 @@ The class object, invisibly
 \subsection{Method \code{get.metadata()}}{
 \code{$get.metadata()} retrieves metadata information for the database pointed to by argument \code{conns}. Once metadata has been retrieved, metadata can be accessed for tables, views, and stored procedures using the following access method: \code{<DBOE obj>$<database name>$<table/view/proc name>}
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{DBOE$get.metadata(conns = self$conns, chatty = FALSE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{DBOE$get.metadata(..., chatty = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{conns}}{A named list of DBI connections given as <database name> = <DBI connection>}
+\item{\code{...}}{\code{\link[rlang]{dots_list}}: one or more DBI/ODBC connection objects.  Unnamed entries will be given generic names.}
 
 \item{\code{chatty}}{(logical) When \code{TRUE}, additional execution messages are sent to the console}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-The class object, invisibly
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-DBOE-get.xdep"></a>}}
-\if{latex}{\out{\hypertarget{method-DBOE-get.xdep}{}}}
-\subsection{Method \code{get.xdep()}}{
-\code{get.xdep()} retrieves cross-database dependencies for endpoints provided in \code{self$conns}.  Results are saved as attributes to either of \code{sys.views} or code{sys.procedures}.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{DBOE$get.xdep(db)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{db}}{(string, symbol) The name of the database for which cross-database dependencies will be searched}
 }
 \if{html}{\out{</div>}}
 }
@@ -105,21 +65,17 @@ The class object, invisibly
 \subsection{Method \code{make.virtual_database()}}{
 \code{$make.virtual_database} creates a set of \code{\link[dplyr]{tbl}} objects in an environment
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{DBOE$make.virtual_database(
-  conn_name = names(self$conns),
-  db_env = rlang::caller_env(),
-  ...
-)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{DBOE$make.virtual_database(conn, target_env = rlang::caller_env(), ...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{conn_name}}{The \code{DBOE} connection name to use}
+\item{\code{conn}}{The name of a metadata environment (created after calling \code{$get.metadata() })}
 
-\item{\code{db_env}}{The environment object where created objects should be stored}
+\item{\code{target_env}}{The environment object where created objects should be stored}
 
-\item{\code{...}}{The names of objects to retrieve: retrieves all tables and views if left blank.  If given as named arguments, the name becomes the local object name}
+\item{\code{...}}{Names of objects to retrieve.  If given as named arguments, the name becomes the local object name.}
 }
 \if{html}{\out{</div>}}
 }

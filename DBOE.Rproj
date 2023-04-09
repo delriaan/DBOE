@@ -17,7 +17,7 @@ StripTrailingWhitespace: Yes
 
 BuildType: Package
 PackageUseDevtools: Yes
-PackagePath: D:/Sideloaded Appz/OneDrive/Documents/GitHub/DBOE/pkg
+PackagePath: pkg
 PackageInstallArgs: --no-multiarch --with-keep.source
 PackageRoxygenize: rd,collate,namespace
 

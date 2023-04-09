@@ -398,61 +398,39 @@ DBOE <- { R6::R6Class(
 				#' @description
 				#' \code{$make.virtual_database} creates a set of \code{\link[dplyr]{tbl}} objects in an environment
 				#' @param conn The name of a metadata environment (created after calling \code{$get.metadata() })
-				#' @param target_ The environment object where created objects should be stored
+				#' @param target_env The environment object where created objects should be stored
 				#' @param ... Names of objects to retrieve.  If given as named arguments, the name becomes the local object name.
 				#' @return An assignable environment object with \code{DBI}-sourced \code{\link[dplyr]{tbl}}s
 				make.virtual_database = function(conn, target_env = rlang::caller_env(), ...){
+					force(target_env);
+
 					db <- purrr::modify_if(conn, is.numeric, ~names(private$connections)[.x]);
 					db_env <- self[[db]];
-
-					all_objs <- {
-						# Retrieve object names
-						.tables <- ls(db_env, pattern = "^(sys.)?tables$");
-						.views <- ls(db_env, pattern = "^(sys.)?views$");
-
-						# Recast as SQL names
-						.tables <- if (rlang::is_empty(.tables)){
-												.tables
-											} else if (any(grepl("sys[.]", .tables))){
-												db_env$sys.tables[db_env$sys.schemas, on = "schema_id"][!is.na(tbl_name)] %$%
-													rlang::set_names(
-														purrr::map2(dplyr::sql(schema_name), dplyr::sql(tbl_name), dbplyr::in_schema)
-														, tbl_name
-														)
-											} else {
-												db_env$tables %$% rlang::set_names(
-														purrr::map2(dplyr::sql(table_schema), dplyr::sql(tbl_name), dbplyr::in_schema)
-														, tbl_name
-														)
-											}
-
-						.views <- if (rlang::is_empty(.views)){
-												.views
-											} else if (any(grepl("sys[.]", .views))){
-												db_env$sys.views[db_env$sys.schemas, on = "schema_id"][!is.na(view_name)] %$% rlang::set_names(
-														purrr::map2(dplyr::sql(schema_name), dplyr::sql(view_name), dbplyr::in_schema)
-														, view_name
-														)
-											} else {
-												db_env$views %$% rlang::set_names(
-														purrr::map2(dplyr::sql(table_schema), dplyr::sql(view_name), dbplyr::in_schema)
-														, view_name
-														)
-											}
-
-						c(.tables, .views) |> purrr::compact() |> names() |> purrr::set_names()
-					}
-
 					obj_queue <- rlang::enexprs(..., .named = TRUE) |>
-						purrr::map(rlang::as_label) |>
-						unlist();
+								purrr::map(rlang::as_label) |>
+								unlist() |>
+								paste(collapse = "|");
 
-					if (rlang::is_empty(obj_queue)){ stop("No values passed to `...`: exiting ...") }
+					if (rlang::is_empty(obj_queue)){ return("No values passed to `...`: exiting ...") }
 
-					obj_queue[obj_queue %in% all_objs] |>
-						purrr::discard(duplicated) |>
-						purrr::iwalk(purrr::possibly(~{
-							assign(.y, dplyr::tbl(src = private$connections[[db]], from = .x), envir = target_env)
+					.tables <- ls(db_env, pattern = "^(sys.)?tables$");
+					.tables <- if (!rlang::is_empty(.tables)){
+							suppressWarnings(db_env$metamap %look.for% obj_queue %>% unique() %>% .[, !"database"])
+						}
+
+					.views <- ls(db_env, pattern = "^(sys.)?views$");
+					.views <- if (!rlang::is_empty(.views)){
+							suppressWarnings(db_env[[.views]] %look.for% obj_queue %>% unique() %>% .[, !"database"])
+						}
+
+					rbindlist(list(.tables, .views) |> purrr::compact(), use.names = FALSE) |>
+						purrr::pwalk(purrr::possibly(~{
+							assign(.y , dplyr::tbl(
+									src = private$connections[[db]]
+									, from = if (db == "mysql"){ dbplyr::in_schema(..1, ..2) } else { dbplyr::in_catalog(db, ..1, ..2) }
+									)
+								, envir = target_env
+								);
 							}, otherwise = "Could not connect"));
 
 					invisible(self)
@@ -484,13 +462,10 @@ DBOE <- { R6::R6Class(
   .hits = i[, purrr::map(.SD, ~{
 	    .needle = .x;
 	    .haystack = x;
-	    .test_1 = which(.needle %in% .haystack)
-	    .test_2 = sapply(.haystack, function(.straw){ .needle %ilike% .straw }) |>
-    						as.data.table() |> apply(1, any) |> which()
-	    c(.test_1, .test_2) |> unique() |> sort() |> stats::na.omit()
-	  }) |>
-	  unlist(use.names = FALSE) |> stats::na.omit()
-  ];
+	    test_1 = which(.needle %in% .haystack)
+	    test_2 = sapply(.haystack, function(.straw){ .needle %ilike% .straw }) |> which()
+	    unlist(c(test_1, test_2)) |> unique()
+	  }) |> unlist(use.names = FALSE)];
 
   # Verify that results exists, or exit if not
   if (identical(integer(0), .hits)){
@@ -498,9 +473,17 @@ DBOE <- { R6::R6Class(
     return(0);
   }
 
-  i[(.hits)] %>% setkeyv(intersect(c("database", "schema_name", "tbl_name", "proc_name"), names(.))) %>% {
-    .out = .;
-    if ("col_names" %in% names(.)){ .out[!is.na(col_name), .(col_names = list(c(col_name))), by = c(key(.out))] } else { .out }
-  }
+  .out <- i[(.hits)] %>%
+  			data.table::setattr(
+	  			"group_cols"
+	  			, intersect(c("database"
+  										, "table_schema", "schema_name"
+  										, "tbl_name", "proc_name", "view_name"
+  										), names(i))
+  			)
+
+  if ("col_names" %in% names(.out)){
+  	.out[!is.na(col_name), .(col_names = list(c(col_name))), by = c(attr(.out, "group_cols"))]
+  } else { .out[, c(attr(.out, "group_cols")), with = FALSE] }
 }
 
