@@ -4,14 +4,12 @@
 \alias{DBOE}
 \title{Database Object Explorer}
 \description{
-\code{DBOE} facilitates the navigation of SQL Server DBMS objects by way of retrieving the metatadata objects.
-It also provides methods to retrieve information from the data catalog: specifically, the \href{http://datacatalog.alliance.local/en/datacatalog/edwchangelog}{EDW changelog}.  Once retrieved, changes can be compared against user-supplied source code
+\code{DBOE} facilitates the navigation of SQL-based database engines by means of metadata. Engines tested to date include Microsoft SQL Server and MySQL.
 }
-\concept{metadata}
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
-\item{\code{connection.list}}{Sets or returns a list of saved connections}
+\item{\code{connection.list}}{Sets or returns a list of saved connections.  When providing a list, it should be names by database.}
 }
 \if{html}{\out{</div>}}
 }
@@ -49,7 +47,7 @@ The class object, invisibly
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{...}}{\code{\link[rlang]{dots_list}}: one or more DBI/ODBC connection objects.  Unnamed entries will be given generic names.}
+\item{\code{...}}{\code{\link[rlang]{dots_list}}: one or more DBI/ODBC connection objects.}
 
 \item{\code{chatty}}{(logical) When \code{TRUE}, additional execution messages are sent to the console}
 }
@@ -63,7 +61,7 @@ The class object, invisibly
 \if{html}{\out{<a id="method-DBOE-make.virtual_database"></a>}}
 \if{latex}{\out{\hypertarget{method-DBOE-make.virtual_database}{}}}
 \subsection{Method \code{make.virtual_database()}}{
-\code{$make.virtual_database} creates a set of \code{\link[dplyr]{tbl}} objects in an environment
+\code{$make.virtual_database} creates a set of \code{\link[dplyr]{tbl}} objects in an environment.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{DBOE$make.virtual_database(conn, target_env = rlang::caller_env(), ...)}\if{html}{\out{</div>}}
 }
@@ -75,7 +73,7 @@ The class object, invisibly
 
 \item{\code{target_env}}{The environment object where created objects should be stored}
 
-\item{\code{...}}{Names of objects to retrieve.  If given as named arguments, the name becomes the local object name.}
+\item{\code{...}}{Names or patterns of objects to retrieve to link from source.}
 }
 \if{html}{\out{</div>}}
 }

@@ -2,12 +2,12 @@
 % Please edit documentation in R/DBOE.R
 \name{\%look.for\%}
 \alias{\%look.for\%}
-\title{Look for a Database Metadata}
+\title{Look for a Database Metadata Reference}
 \usage{
 i \%look.for\% x
 }
 \arguments{
-\item{i}{(object) A data.frame, data.table, or coercible containing object names}
+\item{i}{(object) A \code{metamap} object or database environment (e.g., \code{DBOE$database}) containing the \code{metamap} object}
 
 \item{x}{(string[]) A vector of REGEX patterns or exact names to use for matching against database object names}
 }
@@ -15,5 +15,5 @@ i \%look.for\% x
 A \code{\link[data.table]{data.table}} object with the items that were found, if any
 }
 \description{
-The \code{\%look.for\%} operator searches the provided metadata environment or \code{metamap} object in such an environment for the pattern passed to \code{x}
+The \code{\%look.for\%} operator searches the provided metadata environment or \code{metamap} object in such an environment for the Regex pattern passed to \code{x}.
 }

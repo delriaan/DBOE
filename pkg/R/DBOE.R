@@ -1,12 +1,11 @@
 #' Database Object Explorer
 #'
 #' @description
-#' \code{DBOE} facilitates the navigation of SQL Server DBMS objects by way of retrieving the metatadata objects.
-#' It also provides methods to retrieve information from the data catalog: specifically, the \href{http://datacatalog.alliance.local/en/datacatalog/edwchangelog}{EDW changelog}.  Once retrieved, changes can be compared against user-supplied source code
+#' \code{DBOE} facilitates the navigation of SQL-based database engines by means of metadata. Engines tested to date include Microsoft SQL Server and MySQL.
 #'
 #' @importFrom rlang %||%
 #' @importFrom stringi %s+%
-#' @importFrom magrittr %>% %$% %T>%
+#' @importFrom magrittr %>% %$% %T>% %<>%
 #' @importFrom purrr reduce
 #' @importFrom tictoc tic toc
 #' @import data.table
@@ -25,9 +24,9 @@ DBOE <- { R6::R6Class(
         },
         #' @description
         #' \code{$get.metadata()} retrieves metadata information for the database pointed to by argument \code{conns}. Once metadata has been retrieved, metadata can be accessed for tables, views, and stored procedures using the following access method: \code{<DBOE obj>$<database name>$<table/view/proc name>}
-        #' @param ... \code{\link[rlang]{dots_list}}: one or more DBI/ODBC connection objects.  Unnamed entries will be given generic names.
+        #' @param ... \code{\link[rlang]{dots_list}}: one or more DBI/ODBC connection objects.
         #' @param chatty (logical) When \code{TRUE}, additional execution messages are sent to the console
-        #' @family metadata
+        #'
         #' @return The class object, invisibly
         get.metadata = function(..., chatty = FALSE){
           # Helper function
@@ -179,7 +178,7 @@ DBOE <- { R6::R6Class(
 
 						req.objs <- dbms_types$meta |> sort() |> purrr::set_names();
 
-            message(sprintf("Processing metadata for <%s>", this.db));
+            if (chatty) message(sprintf("Processing metadata for <%s>", this.db));
             tictoc::tic("\tMetadata -> " %s+% this.db);
 
             # Tables, Columns, Schemas, Views (VALIDATE: MySQL[1] MSSQL[?]) ====
@@ -298,7 +297,7 @@ DBOE <- { R6::R6Class(
             rlang::eval_tidy(metamap_action[[.meta_idx]]);
 
             # Active bindings (VALIDATE: MySQL[1] MSSQL[1]) ====
-            message("Creating active bindings")
+            if (chatty) message("Creating active bindings");
 
             # Stored procedures (VALIDATE: MySQL[1] MSSQL[1])
 						if ((nrow(proxy_env$sys.procedures) %||% 0) > 0){
@@ -396,16 +395,20 @@ DBOE <- { R6::R6Class(
           invisible(self);
         },
 				#' @description
-				#' \code{$make.virtual_database} creates a set of \code{\link[dplyr]{tbl}} objects in an environment
+				#' \code{$make.virtual_database} creates a set of \code{\link[dplyr]{tbl}} objects in an environment.
+				#'
 				#' @param conn The name of a metadata environment (created after calling \code{$get.metadata() })
 				#' @param target_env The environment object where created objects should be stored
-				#' @param ... Names of objects to retrieve.  If given as named arguments, the name becomes the local object name.
+				#' @param ... Names or patterns of objects to retrieve to link from source.
+				#'
 				#' @return An assignable environment object with \code{DBI}-sourced \code{\link[dplyr]{tbl}}s
 				make.virtual_database = function(conn, target_env = rlang::caller_env(), ...){
 					force(target_env);
 
 					db <- purrr::modify_if(conn, is.numeric, ~names(private$connections)[.x]);
+
 					db_env <- self[[db]];
+
 					obj_queue <- rlang::enexprs(..., .named = TRUE) |>
 								purrr::map(rlang::as_label) |>
 								unlist() |>
@@ -437,7 +440,7 @@ DBOE <- { R6::R6Class(
 				}
       )}
     , active = { list(
-    		#' @field connection.list Sets or returns a list of saved connections
+    		#' @field connection.list Sets or returns a list of saved connections.  When providing a list, it should be names by database.
     		connection.list = function(i = NULL){
     				if (is.list(i)){ private$connections <- i } else { return(private$connections) }
     			}
@@ -446,10 +449,11 @@ DBOE <- { R6::R6Class(
     )}
 #
 `%look.for%` <- function(i, x){
-#' Look for a Database Metadata
+#' Look for a Database Metadata Reference
 #'
-#' The \code{\%look.for\%} operator searches the provided metadata environment or \code{metamap} object in such an environment for the pattern passed to \code{x}
-#' @param i (object) A data.frame, data.table, or coercible containing object names
+#' The \code{\%look.for\%} operator searches the provided metadata environment or \code{metamap} object in such an environment for the Regex pattern passed to \code{x}.
+#'
+#' @param i (object) A \code{metamap} object or database environment (e.g., \code{DBOE$database}) containing the \code{metamap} object
 #' @param x (string[]) A vector of REGEX patterns or exact names to use for matching against database object names
 #'
 #' @return A \code{\link[data.table]{data.table}} object with the items that were found, if any
@@ -486,4 +490,3 @@ DBOE <- { R6::R6Class(
   	.out[!is.na(col_name), .(col_names = list(c(col_name))), by = c(attr(.out, "group_cols"))]
   } else { .out[, c(attr(.out, "group_cols")), with = FALSE] }
 }
-
