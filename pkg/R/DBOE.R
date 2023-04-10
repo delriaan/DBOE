@@ -65,7 +65,7 @@ DBOE <- { R6::R6Class(
 							, views = {
 									(if (dbms != "MySQL"){
 										data.table::as.data.table(i)[
-			                proxy_env$sys.schemas[, .(schema_id, schema_name = table_name)]
+			                proxy_env$sys.schemas[, .(schema_id, schema_name)]
 			                , on = "schema_id", nomatch = 0
 			                ][
 			                , view_def := purrr::map2_chr(schema_name, name, ~{

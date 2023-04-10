@@ -1,7 +1,7 @@
 Package: DBOE
 Type: Package
 Title: Datbase Object Explorer
-Version: 2.2.0
+Version: 2.2.1
 Author: Chionesu George <sapienti.Dei@outlook.com> [aut, cre]
 Maintainer: Chionesu George <sapienti.Dei@outlook.com>
 Description: Package `DBOE` facilitates the exploration of DBMS metadata.
