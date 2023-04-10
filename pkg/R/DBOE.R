@@ -341,7 +341,7 @@ DBOE <- { R6::R6Class(
 
             # Views (VALIDATE: MySQL[1] MSSQL[1])
 						if ((nrow(proxy_env$sys.views) %||% 0) > 0){
-	            .temp <- proxy_env$sys.views[
+	            .temp <- data.table::setnames(proxy_env$sys.views, "name", "view_name", skip_absent = TRUE)[
 							          !is.na(view_name)
 							          , list(list(.SD[, schema_name:view_def]))
 							          , by = view_name
