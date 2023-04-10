@@ -10,7 +10,7 @@
 # 	, tictoc
 # 	, "data.table{+%like%}"
 # 	)
-
+library(DBOE)
 db_conns <- list(
 		mysql = DBI::dbConnect(odbc::odbc(), "MySQL"
 														, database = "mysql"

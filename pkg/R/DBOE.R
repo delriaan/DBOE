@@ -65,7 +65,7 @@ DBOE <- { R6::R6Class(
 							, views = {
 									(if (dbms != "MySQL"){
 										data.table::as.data.table(i)[
-			                proxy_env$sys.schemas[, .(schema_id, schema_name = table_name)]
+			                proxy_env$sys.schemas[, .(schema_id, schema_name)]
 			                , on = "schema_id", nomatch = 0
 			                ][
 			                , view_def := purrr::map2_chr(schema_name, name, ~{
@@ -108,6 +108,7 @@ DBOE <- { R6::R6Class(
 			                      unlist() |> purrr::reduce(paste0)
 			                  }) |> unlist()
 			                ] |>
+              			data.table::setnames("name","proc_name") |>
 	            			data.table::setkey(schema_id, proc_name)
               		} else {
 										data.table::as.data.table(i) %>%
@@ -340,7 +341,7 @@ DBOE <- { R6::R6Class(
 
             # Views (VALIDATE: MySQL[1] MSSQL[1])
 						if ((nrow(proxy_env$sys.views) %||% 0) > 0){
-	            .temp <- proxy_env$sys.views[
+	            .temp <- data.table::setnames(proxy_env$sys.views, "name", "view_name", skip_absent = TRUE)[
 							          !is.na(view_name)
 							          , list(list(.SD[, schema_name:view_def]))
 							          , by = view_name
