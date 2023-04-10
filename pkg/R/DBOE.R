@@ -108,6 +108,7 @@ DBOE <- { R6::R6Class(
 			                      unlist() |> purrr::reduce(paste0)
 			                  }) |> unlist()
 			                ] |>
+              			data.table::setnames("name","proc_name") |>
 	            			data.table::setkey(schema_id, proc_name)
               		} else {
 										data.table::as.data.table(i) %>%
