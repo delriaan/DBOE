@@ -1,16 +1,16 @@
  # VALIDATION ----
 # library(book.of.workflow);
-# load_unloaded(purrr
-# 	, stringi
-# 	, magrittr
-# 	, rlang
-# 	, DBI
-# 	, httr
-# 	, keyring
-# 	, tictoc
-# 	, "data.table{+%like%}"
-# 	)
-library(DBOE)
+load_unloaded(purrr
+	, stringi
+	, magrittr
+	, rlang
+	, DBI
+	, httr
+	, keyring
+	, tictoc
+	, "data.table{+%like%}"
+	)
+# library(DBOE)
 db_conns <- list(
 		mysql = DBI::dbConnect(odbc::odbc(), "MySQL"
 														, database = "mysql"
@@ -32,8 +32,13 @@ X <- DBOE$new()
 X$get.metadata(!!!db_conns)
 
 # undebug(X$make.virtual_database)
-X$make.virtual_database(conn = "GW2DB", target_env = globalenv(), dim_items, character, jobs = profession)
-X$make.virtual_database(conn = "mysql", target_env = globalenv(), rental, staff)
+X$make.virtual_database(conn = "GW2DB", target_env = globalenv(), dim_items, character, profession)
+
+
+
+DBI::dbGetQuery(db_conns$mysql, "SELECT * FROM world.country LIMIT 10")
+X$make.virtual_database(conn = "mysql", target_env = globalenv(), country, account)
+X$mysql$metamap[(schema_name == "world")]
 
 purrr::walk(db_conns, dbDisconnect)
 rm(db_conns)

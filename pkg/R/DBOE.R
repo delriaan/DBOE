@@ -4,7 +4,6 @@
 #' \code{DBOE} facilitates the navigation of SQL-based database engines by means of metadata. Engines tested to date include Microsoft SQL Server and MySQL.
 #'
 #' @importFrom rlang %||%
-#' @importFrom stringi %s+%
 #' @importFrom magrittr %>% %$% %T>% %<>%
 #' @importFrom purrr reduce
 #' @importFrom tictoc tic toc
@@ -138,7 +137,7 @@ DBOE <- { R6::R6Class(
           		, .check_assign = TRUE
           		) |>
           	purrr::map(~{
-							.out <- rlang::list2(conn = .x, !!!{ dbGetInfo(.x) %$% mget(ls(pattern = "dbname|dbms[.]name|sourcename"))});
+							.out <- rlang::list2(conn = .x, !!!{ DBI::dbGetInfo(.x) %$% mget(ls(pattern = "dbname|dbms[.]name|sourcename"))});
 
 							if (!hasName(.out, "dbms.name")){
 									.out$dbms.name <- .out$dbname;
@@ -180,7 +179,7 @@ DBOE <- { R6::R6Class(
 						req.objs <- dbms_types$meta |> sort() |> purrr::set_names();
 
             if (chatty) message(sprintf("Processing metadata for <%s>", this.db));
-            tictoc::tic("\tMetadata -> " %s+% this.db);
+            tictoc::tic(paste("\tMetadata -> ", this.db));
 
             # Tables, Columns, Schemas, Views (VALIDATE: MySQL[1] MSSQL[?]) ====
             purrr::keep(req.objs, ~.x %in% c("schemas", "tables", "columns", "views"))  |>
@@ -406,11 +405,14 @@ DBOE <- { R6::R6Class(
 				make.virtual_database = function(conn, target_env = rlang::caller_env(), ...){
 					force(target_env);
 
-					db <- purrr::modify_if(conn, is.numeric, ~names(private$connections)[.x]);
+					db <- purrr::modify_if(conn, is.numeric, \(x) names(private$connections)[x]);
+
+					dbms <- DBI::dbGetInfo(private$connections[[db]]);
+					dbms <- if (rlang::has_name(dbms, "dbms.name")){ dbms$dbms.name } else { dbms$dbname }
 
 					db_env <- self[[db]];
 
-					obj_queue <- rlang::enexprs(..., .named = TRUE) |>
+					obj_queue <- rlang::enexprs(...) |>
 								purrr::map(rlang::as_label) |>
 								unlist() |>
 								paste(collapse = "|");
@@ -419,25 +421,34 @@ DBOE <- { R6::R6Class(
 
 					.tables <- ls(db_env, pattern = "^(sys.)?tables$");
 					.tables <- if (!rlang::is_empty(.tables)){
-							suppressWarnings(db_env$metamap %look.for% obj_queue %>% unique() %>%
-															 	purrr::modify_if(~hasName(.x, "database"), ~.x[, !"database"]))
+							suppressWarnings(db_env$metamap %look.for% obj_queue %>% unique())
 						}
 
 					.views <- ls(db_env, pattern = "^(sys.)?views$");
 					.views <- if (!rlang::is_empty(.views)){
-							suppressWarnings(db_env[[.views]] %look.for% obj_queue %>% unique() %>%
-															 	purrr::modify_if(~hasName(.x, "database"), ~.x[, !"database"]))
+							suppressWarnings(db_env[[.views]] %look.for% obj_queue %>% unique()) |>
+							data.table::setnames(c("table_schema", "view_name"), c("schema_name", "tbl_name"), skip_absent = TRUE)
 						}
 
-					rbindlist(list(.tables, .views) |> purrr::compact(), fill = TRUE) |>
-						purrr::pwalk(purrr::possibly(~{
-							assign(.y , dplyr::tbl(
-									src = private$connections[[db]]
-									, from = if (db == "mysql"){ dbplyr::in_schema(..1, ..2) } else { dbplyr::in_catalog(db, ..1, ..2) }
+					.assign_fun <- \(src, i) assign(i[[length(i)]] , dplyr::tbl(
+									src = src
+									, from = if (dbms == "MySQL"){
+													dbplyr::in_schema(schema = dbplyr::sql(i$schema_name), table = dbplyr::sql(i$tbl_name))
+												} else {
+													dbplyr::in_catalog(
+														catalog = dbplyr::sql(i$database)
+														, schema = dbplyr::sql(i$schema_name)
+														, table = dbplyr::sql(i$tbl_name)
+														)
+												}
 									)
 								, envir = target_env
 								);
-							}, otherwise = "Could not connect"));
+
+					.assign_fun <-  purrr::possibly(.assign_fun, otherwise = "Could not connect");
+
+					rbindlist(list(.tables, .views) |> purrr::compact(), fill = TRUE) |>
+						apply(MARGIN = 1, FUN = \(x) .assign_fun(src = private$connections[[db]], i = as.list(x)));
 
 					invisible(self)
 				}
@@ -476,7 +487,7 @@ DBOE <- { R6::R6Class(
 
   # Verify that results exists, or exit if not
   if (identical(integer(0), .hits)){
-    message("[FAIL]: <" %s+% paste(x, collapse = ", ") %s+% "> not found or failed to find matches.");
+    message(paste0("[FAIL]: <", paste(x, collapse = ", "), "> not found or failed to find matches."));
     return(0);
   }
 
