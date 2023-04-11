@@ -429,7 +429,7 @@ DBOE <- { R6::R6Class(
 															 	purrr::modify_if(~hasName(.x, "database"), ~.x[, !"database"]))
 						}
 
-					rbindlist(list(.tables, .views) |> purrr::compact(), use.names = FALSE) |>
+					rbindlist(list(.tables, .views) |> purrr::compact(), fill = TRUE) |>
 						purrr::pwalk(purrr::possibly(~{
 							assign(.y , dplyr::tbl(
 									src = private$connections[[db]]
