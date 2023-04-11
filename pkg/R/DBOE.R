@@ -419,12 +419,14 @@ DBOE <- { R6::R6Class(
 
 					.tables <- ls(db_env, pattern = "^(sys.)?tables$");
 					.tables <- if (!rlang::is_empty(.tables)){
-							suppressWarnings(db_env$metamap %look.for% obj_queue %>% unique() %>% .[, !"database"])
+							suppressWarnings(db_env$metamap %look.for% obj_queue %>% unique() %>%
+															 	purrr::modify_if(~hasName(.x, "database"), ~.x[, !"database"]))
 						}
 
 					.views <- ls(db_env, pattern = "^(sys.)?views$");
 					.views <- if (!rlang::is_empty(.views)){
-							suppressWarnings(db_env[[.views]] %look.for% obj_queue %>% unique() %>% .[, !"database"])
+							suppressWarnings(db_env[[.views]] %look.for% obj_queue %>% unique() %>%
+															 	purrr::modify_if(~hasName(.x, "database"), ~.x[, !"database"]))
 						}
 
 					rbindlist(list(.tables, .views) |> purrr::compact(), use.names = FALSE) |>
