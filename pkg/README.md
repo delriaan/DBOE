@@ -1,6 +1,6 @@
-# Database Object Explorer
+# ![book](../img/database.png) Database Object Explorer (DBOE)
 
-`DBOE` facilitates the navigation of SQL-based database engines by means of metadata. 
+`DBOE` facilitates the navigation of SQL-based database engines by leveraging metadata. 
 
 Engines tested to date include Microsoft SQL Server and MySQL.
 
