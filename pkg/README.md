@@ -1,4 +1,4 @@
-# ![book](../img/database.png) Database Object Explorer (DBOE)
+# ![book](database.png) Database Object Explorer (DBOE)
 
 `DBOE` facilitates the navigation of SQL-based database engines by leveraging metadata. 
 
