@@ -421,13 +421,18 @@ DBOE <- { R6::R6Class(
 
 					.tables <- ls(db_env, pattern = "^(sys.)?tables$");
 					.tables <- if (!rlang::is_empty(.tables)){
-							suppressWarnings(db_env$metamap %look.for% obj_queue %>% unique())
+							.out <- suppressWarnings(db_env$metamap %look.for% obj_queue %>% unique())
+							if (!rlang::is_empty(.out)) {
+								unique(.out) |> data.table::setnames(c("table_schema", "view_name"), c("schema_name", "tbl_name"), skip_absent = TRUE)
+							} else { .out }
 						}
 
 					.views <- ls(db_env, pattern = "^(sys.)?views$");
 					.views <- if (!rlang::is_empty(.views)){
-							suppressWarnings(db_env[[.views]] %look.for% obj_queue %>% unique()) |>
-							data.table::setnames(c("table_schema", "view_name"), c("schema_name", "tbl_name"), skip_absent = TRUE)
+							.out <- suppressWarnings(db_env[[.views]] %look.for% obj_queue)
+							if (!rlang::is_empty(.out)) {
+								unique(.out) |> data.table::setnames(c("table_schema", "view_name"), c("schema_name", "tbl_name"), skip_absent = TRUE)
+							} else { .out }
 						}
 
 					.assign_fun <- \(src, i) assign(i[[length(i)]] , dplyr::tbl(
@@ -481,14 +486,14 @@ DBOE <- { R6::R6Class(
 	    .needle = .x;
 	    .haystack = x;
 	    test_1 = which(.needle %in% .haystack)
-	    test_2 = sapply(.haystack, function(.straw){ .needle %ilike% .straw }) |> which()
+	    test_2 = sapply(.haystack, function(.bale){ .needle %ilike% .bale }) |> which()
 	    unlist(c(test_1, test_2)) |> unique()
 	  }) |> unlist(use.names = FALSE)];
 
   # Verify that results exists, or exit if not
   if (identical(integer(0), .hits)){
     message(paste0("[FAIL]: <", paste(x, collapse = ", "), "> not found or failed to find matches."));
-    return(0);
+    return(NULL);
   }
 
   .out <- i[(.hits)] %>%
