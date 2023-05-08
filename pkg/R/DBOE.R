@@ -421,6 +421,7 @@ DBOE <- { R6::R6Class(
 
 					.tables <- ls(db_env, pattern = "^(sys.)?tables$");
 					.tables <- if (!rlang::is_empty(.tables)){
+							message("Checking tables ...");
 							.out <- suppressWarnings(db_env$metamap %look.for% obj_queue %>% unique())
 							if (!rlang::is_empty(.out)) {
 								unique(.out) |> data.table::setnames(c("table_schema", "view_name"), c("schema_name", "tbl_name"), skip_absent = TRUE)
@@ -429,6 +430,7 @@ DBOE <- { R6::R6Class(
 
 					.views <- ls(db_env, pattern = "^(sys.)?views$");
 					.views <- if (!rlang::is_empty(.views)){
+							message("Checking views ...");
 							.out <- suppressWarnings(db_env[[.views]] %look.for% obj_queue)
 							if (!rlang::is_empty(.out)) {
 								unique(.out) |> data.table::setnames(c("table_schema", "view_name"), c("schema_name", "tbl_name"), skip_absent = TRUE)
