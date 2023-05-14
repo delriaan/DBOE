@@ -4,4 +4,4 @@
 
 Engines tested to date include Microsoft SQL Server and MySQL.
 
-**Note**: This is a work in-progress, but feel free to try it out.
+Use `remotes::install_github('delriaan/DBOE, subdir = "pkg")` to install.
