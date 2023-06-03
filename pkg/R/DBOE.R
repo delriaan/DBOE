@@ -422,7 +422,7 @@ DBOE <- { R6::R6Class(
 					.tables <- ls(db_env, pattern = "^(sys.)?tables$");
 					.tables <- if (!rlang::is_empty(.tables)){
 							message("Checking tables ...");
-							.out <- suppressWarnings(db_env$metamap %look.for% obj_queue %>% unique())
+							.out <- suppressWarnings(db_env$metamap %look.for% obj_queue)
 							if (!rlang::is_empty(.out)) {
 								unique(.out) |> data.table::setnames(c("table_schema", "view_name"), c("schema_name", "tbl_name"), skip_absent = TRUE)
 							} else { .out }
@@ -484,7 +484,7 @@ DBOE <- { R6::R6Class(
   if (is.environment(i)){ if (rlang::env_has(i, "metamap")){ i <- i$metamap }}
   if (!is.data.table(i)){ i <- as.data.table(i) }
 
-  .hits = i[, purrr::map(.SD, ~{
+  .hits <- i[, purrr::map(.SD, ~{
 	    .needle = .x;
 	    .haystack = x;
 	    test_1 = which(.needle %in% .haystack)
@@ -501,13 +501,12 @@ DBOE <- { R6::R6Class(
   .out <- i[(.hits)] %>%
   			data.table::setattr(
 	  			"group_cols"
-	  			, intersect(c("database"
-  										, "table_schema", "schema_name"
-  										, "tbl_name", "proc_name", "view_name"
-  										), names(i))
-  			)
+	  			, intersect(c("database", "table_schema", "schema_name", "tbl_name", "proc_name", "view_name"), names(i))
+  				)
 
   if ("col_names" %in% names(.out)){
   	.out[!is.na(col_name), .(col_names = list(c(col_name))), by = c(attr(.out, "group_cols"))]
-  } else { .out[, c(attr(.out, "group_cols")), with = FALSE] }
+  } else {
+  	.out[, c(attr(.out, "group_cols")), with = FALSE]
+  }
 }

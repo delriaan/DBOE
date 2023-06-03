@@ -1,6 +1,7 @@
  # VALIDATION ----
-# library(book.of.workflow);
-load_unloaded(purrr
+library(book.of.workflow);
+load_unloaded(
+	purrr
 	, stringi
 	, magrittr
 	, rlang
@@ -11,7 +12,7 @@ load_unloaded(purrr
 	, "data.table{+%like%}"
 	)
 # library(DBOE)
-db_conns <- list(
+db_conns <- { list(
 		mysql = DBI::dbConnect(odbc::odbc(), "MySQL"
 														, database = "mysql"
 														, user = "delriaan"
@@ -24,10 +25,11 @@ db_conns <- list(
 														# , database = "GW2DB"
 														, user = "imperial_agent"
 														, password = keyring::key_get(service = "MSSQL", username = "imperial_agent", keyring = "R"))
-		)
+		)}
 
 # source("pkg/R/DBOE.R")
 X <- DBOE$new()
+
 # debug(X$get.metadata)
 X$get.metadata(!!!db_conns)
 
