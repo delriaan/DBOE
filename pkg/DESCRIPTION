@@ -22,3 +22,6 @@ Imports:
 	, tictoc
 Suggests: RMariaDB (>= 1.2.0)
 RoxygenNote: 7.2.3
+Roxygen: list(markdown = TRUE)
+VignetteBuilder: knitr
+URL: https://github.com/delriaan/DBOE/, https://delriaan.github.io/DBOE/
