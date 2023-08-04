@@ -12,19 +12,24 @@ load_unloaded(
 	, "data.table{+%like%}"
 	)
 # library(DBOE)
+
+.easy_pass_mssql <- book.of.utilities::kr_key(service = "MSSQL", username = "imperial_agent", keyring = "local")
+.easy_pass_mysql <- book.of.utilities::kr_key(service = "MySQL", username = "delriaan", keyring = "local")
+
 db_conns <- { list(
-		mysql = DBI::dbConnect(odbc::odbc(), "MySQL"
+		mysql = DBI::dbConnect(odbc::odbc()
+														, dsn = "MySQL"
+														, server = "imperialtower"
 														, database = "mysql"
 														, user = "delriaan"
-														, password = keyring::key_get(service = "MySQL", username = "delriaan", keyring = "R"))
+														, password = .easy_pass_mysql@get())
 
-		, GW2DB = DBI::dbConnect(RODBCDBI::ODBC(), "GW2DB"
-														# , server = "imperialtower"
-														# , database = "GW2DB"
-														# , case = "nochange"
-														# , database = "GW2DB"
-														, user = "imperial_agent"
-														, password = keyring::key_get(service = "MSSQL", username = "imperial_agent", keyring = "R"))
+		, GW2DB = RODBCDBI::dbConnect(odbc::odbc()
+														, dsn = "GW2DB"
+														, case = "nochange"
+														, uid = "imperial_agent"
+														, pwd = .easy_pass_mssql@get()
+														)
 		)}
 
 # source("pkg/R/DBOE.R")
@@ -34,8 +39,12 @@ X <- DBOE$new()
 X$get.metadata(!!!db_conns)
 
 # undebug(X$make.virtual_database)
-X$make.virtual_database(conn = "GW2DB", target_env = globalenv(), dim_items, character, profession)
+X$make.virtual_database(conn = "GW2DB", target_env = globalenv(), sch = dbo, dim_items, character, profession)
 
+DBI::dbListTables(db_conns$GW2DB)
+X$GW2DB %look.for% "dim|sys" |> unique()
+
+dplyr::tbl(db_conns$GW2DB, "dim_items")
 
 
 DBI::dbGetQuery(db_conns$mysql, "SELECT * FROM world.country LIMIT 10")
