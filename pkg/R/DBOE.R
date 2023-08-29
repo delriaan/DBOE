@@ -403,7 +403,7 @@
 			#' @param ... Names or patterns of objects to retrieve to link from source.
 			#'
 			#' @return An assignable environment object with \code{DBI}-sourced \code{\link[dplyr]{tbl}}s
-			make.virtual_database = function(conn, target_env = rlang::caller_env(), sch, ...){
+			make.virtual_database = function(conn, target_env = rlang::caller_env(), sch = "dbo", ...){
 				force(target_env);
 
 				db <- purrr::modify_if(conn, is.numeric, \(x) names(private$connections)[x]);
