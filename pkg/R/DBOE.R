@@ -398,12 +398,12 @@
 			#' \code{$make.virtual_database} creates a set of \code{\link[dplyr]{tbl}} objects in an environment.
 			#'
 			#' @param conn The name of a metadata environment (created after calling \code{$get.metadata() })
+			#' @param ... Names or patterns of objects to retrieve to link from source.
 			#' @param target_env The environment object where created objects should be stored
 			#' @param sch (Optional) The target schema (e.g., dbo) on which to filter internal search results
-			#' @param ... Names or patterns of objects to retrieve to link from source.
 			#'
 			#' @return An assignable environment object with \code{DBI}-sourced \code{\link[dplyr]{tbl}}s
-			make.virtual_database = function(conn, target_env = rlang::caller_env(), sch = "dbo", ...){
+			make.virtual_database = function(conn, ..., target_env = rlang::caller_env(), sch = "dbo"){
 				force(target_env);
 
 				db <- purrr::modify_if(conn, is.numeric, \(x) names(private$connections)[x]);
