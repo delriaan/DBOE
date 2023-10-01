@@ -65,9 +65,9 @@ The class object, invisibly
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{DBOE$make.virtual_database(
   conn,
+  ...,
   target_env = rlang::caller_env(),
-  sch = "dbo",
-  ...
+  sch = "dbo"
 )}\if{html}{\out{</div>}}
 }
 
@@ -76,11 +76,11 @@ The class object, invisibly
 \describe{
 \item{\code{conn}}{The name of a metadata environment (created after calling \code{$get.metadata() })}
 
+\item{\code{...}}{Names or patterns of objects to retrieve to link from source.}
+
 \item{\code{target_env}}{The environment object where created objects should be stored}
 
 \item{\code{sch}}{(Optional) The target schema (e.g., dbo) on which to filter internal search results}
-
-\item{\code{...}}{Names or patterns of objects to retrieve to link from source.}
 }
 \if{html}{\out{</div>}}
 }
