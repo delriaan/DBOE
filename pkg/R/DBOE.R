@@ -24,10 +24,11 @@
       #' @description
       #' \code{$get.metadata()} retrieves metadata information for the database pointed to by argument \code{conns}. Once metadata has been retrieved, metadata can be accessed for tables, views, and stored procedures using the following access method: \code{<DBOE obj>$<database name>$<table/view/proc name>}
       #' @param ... \code{\link[rlang]{dots_list}}: one or more DBI/ODBC connection objects.
-      #' @param chatty (logical) When \code{TRUE}, additional execution messages are sent to the console
+			#' @param include.procs (logical | FALSE) Should stored procedures be included in the metatdata retrieval?
+      #' @param chatty (logical | FALSE) Should additional execution messages be sent to the console?
       #'
       #' @return The class object, invisibly
-      get.metadata = function(..., chatty = FALSE){
+      get.metadata = function(..., include.procs = FALSE, chatty = FALSE){
         # Helper function
         check.etl_obj <- function(obj){
           proxy_env <- rlang::caller_env() %$% proxy_env;
@@ -197,19 +198,20 @@
             });
 
           # Procs (VALIDATE: MySQL[1] MSSQL[1]) ====
-					.this <- dbms_types$procedures |> eval();
+					if (include.procs){
+						.this <- dbms_types$procedures |> eval();
 
-					if ((nrow(.this) %||% 0) > 0){
-						obj <- paste0(
-										ifelse(this.dbms == "MySQL", "", "sys.")
-										, req.objs[which(grepl("procedure|routine", req.objs))]
-										)
+						if ((nrow(.this) %||% 0) > 0){
+							obj <- paste0(
+											ifelse(this.dbms == "MySQL", "", "sys.")
+											, req.objs[which(grepl("procedure|routine", req.objs))]
+											)
 
-						assign(obj, value = post.op(i = .this, j = "procedures", dbms = this.dbms), envir = proxy_env)
+							assign(obj, value = post.op(i = .this, j = "procedures", dbms = this.dbms), envir = proxy_env)
 
-						check.etl_obj(obj);
+							check.etl_obj(obj);
+						}
 					}
-
           # Types (VALIDATE: MySQL[1] MSSQL[1]) ====
           if (this.dbms != "MySQL"){
           	.this <- DBI::dbGetQuery(neo.conn, "SELECT [name], system_type_id, schema_id FROM sys.types");
@@ -300,12 +302,13 @@
           if (chatty) message("Creating active bindings");
 
           # Stored procedures (VALIDATE: MySQL[1] MSSQL[1])
-					if ((nrow(proxy_env$sys.procedures) %||% 0) > 0){
+					if ((nrow(proxy_env$sys.procedures) %||% 0) > 0 && include.procs){
 						.temp <- proxy_env$sys.procedures[
 					          !is.na(proc_name)
 					          , list(list(.SD[, schema_name:proc_def]))
 					          , by = proc_name
-					          ] %$% rlang::set_names(V1, proc_name);
+					          ] %$% 
+							rlang::set_names(V1, proc_name);
 
 						proxy_env$.proc_dm <- rlang::as_data_mask(.temp);
 
@@ -318,14 +321,15 @@
 						  });
 					}
 
-					if ((nrow(proxy_env$routines) %||% 0) > 0){
+					if ((nrow(proxy_env$routines) %||% 0) > 0 && include.procs){
 						.temp <- proxy_env$routines[
 					          !is.na(proc_name)
 					          , list(proc_created = created
 					          			 , list(.SD[, .(proc_def, routine_comment)])
 					          			 )
 					          , by = .(proc_name, schema_name = routine_schema)
-					          ] %$% rlang::set_names(V2, proc_name);
+					          ] %$% 
+							rlang::set_names(V2, proc_name);
 
 						proxy_env$.proc_dm <- rlang::as_data_mask(.temp)
 

@@ -41,7 +41,7 @@ The class object, invisibly
 \subsection{Method \code{get.metadata()}}{
 \code{$get.metadata()} retrieves metadata information for the database pointed to by argument \code{conns}. Once metadata has been retrieved, metadata can be accessed for tables, views, and stored procedures using the following access method: \code{<DBOE obj>$<database name>$<table/view/proc name>}
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{DBOE$get.metadata(..., chatty = FALSE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{DBOE$get.metadata(..., include.procs = FALSE, chatty = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -49,7 +49,9 @@ The class object, invisibly
 \describe{
 \item{\code{...}}{\code{\link[rlang]{dots_list}}: one or more DBI/ODBC connection objects.}
 
-\item{\code{chatty}}{(logical) When \code{TRUE}, additional execution messages are sent to the console}
+\item{\code{include.procs}}{(logical | FALSE) Should stored procedures be included in the metatdata retrieval?}
+
+\item{\code{chatty}}{(logical | FALSE) Should additional execution messages be sent to the console?}
 }
 \if{html}{\out{</div>}}
 }
