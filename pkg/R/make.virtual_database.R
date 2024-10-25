@@ -1,4 +1,4 @@
-make.virtual_database <- \(dboe = NULL, conn = NULL, ..., target_env = .GlobalEnv, sch = "dbo", exclude = NULL){
+make.virtual_database <- \(dboe = NULL, conn = NULL, ..., target_env = .GlobalEnv, sch = "dbo", exclude = NA){
   #' Make a Virtual Database of Table Links
   #' 
   #' @param dboe A \code{\link[DBOE]{DBOE}} object.
@@ -34,10 +34,10 @@ make.virtual_database <- \(dboe = NULL, conn = NULL, ..., target_env = .GlobalEn
     unlist(use.names = FALSE)
 
   # Exclude table names matching the pattern in 'exclude':
-  if (!rlang::is_empty(exclude) || is.na(exclude)){
+  if (!is.na(exclude)){
     queue <- grep(paste(sprintf("(%s)", exclude), collapse = "|"), queue, value = TRUE, ignore.case = TRUE, invert = TRUE)
   }
-  
+
   queue |>
     purrr::walk(\(x){
       this <- DBI::Id(catalog = db, schema = sch, table = x)

@@ -10,7 +10,7 @@ make.virtual_database(
   ...,
   target_env = .GlobalEnv,
   sch = "dbo",
-  exclude = NULL
+  exclude = NA
 )
 }
 \arguments{
