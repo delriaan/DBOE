@@ -1,7 +1,7 @@
 Package: DBOE
 Type: Package
 Title: Database Object Explorer
-Version: 2.2.9
+Version: 2.3.0
 Author: Chionesu George <sapienti.Dei@outlook.com> [aut, cre]
 Maintainer: Chionesu George <sapienti.Dei@outlook.com>
 Description: Package `DBOE` facilitates the exploration of DBMS metadata.
@@ -11,16 +11,15 @@ LazyData: true
 Desc: Explore DBMS metadata.
 Depends: R (>= 4.4.1), data.table
 Imports: 
-	purrr (>= 1.0.0)
-	, dbplyr (>= 2.2.1)
+	DBI
+	, purrr (>= 1.0.0)
+	, dplyr
+	, httr2
 	, stringi
 	, magrittr
 	, rlang
-	, DBI
-	, httr
-	, keyring
 	, tictoc
-Suggests: RMariaDB (>= 1.2.0)
+Suggests: RMariaDB (>= 1.2.0), keyring
 RoxygenNote: 7.3.2
 Roxygen: list(markdown = TRUE)
 VignetteBuilder: knitr

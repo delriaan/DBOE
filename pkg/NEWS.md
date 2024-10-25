@@ -1,7 +1,9 @@
-# DBOE 2.2.9
+# DBOE 2.3.0
 
-## Updated
+## Breaking Changes
 
-- DBOE class method `make.virtual_database()`: 
-  Added parameter *include.procs* to allow the scanning of stored procedures to be "opt-in". This was done to accomodate situations where the permissions to read certain metadata objects from the database have not been granted.
-  
+- **`get.metadata()`** and **`make.virtual_database()`** are now standalone functions instead of class methods. Each has been re-written and simplified with largely the same function signatures as previous versions.
+
+## Updates
+
+- Added function **`make.db_connection()`**, a DBI connection helper function

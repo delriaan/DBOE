@@ -5,7 +5,10 @@
 <url><loc>/LICENSE-text.html</loc></url>
 <url><loc>/news/index.html</loc></url>
 <url><loc>/reference/DBOE.html</loc></url>
+<url><loc>/reference/get.metadata.html</loc></url>
 <url><loc>/reference/grapes-look.for-grapes.html</loc></url>
 <url><loc>/reference/index.html</loc></url>
+<url><loc>/reference/make.db_connection.html</loc></url>
+<url><loc>/reference/make.virtual_database.html</loc></url>
 </urlset>
 

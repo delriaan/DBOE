@@ -17,8 +17,6 @@
 \subsection{Public methods}{
 \itemize{
 \item \href{#method-DBOE-new}{\code{DBOE$new()}}
-\item \href{#method-DBOE-get.metadata}{\code{DBOE$get.metadata()}}
-\item \href{#method-DBOE-make.virtual_database}{\code{DBOE$make.virtual_database()}}
 \item \href{#method-DBOE-clone}{\code{DBOE$clone()}}
 }
 }
@@ -28,66 +26,18 @@
 \subsection{Method \code{new()}}{
 Initialize the class object
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{DBOE$new()}\if{html}{\out{</div>}}
-}
-
-\subsection{Returns}{
-The class object, invisibly
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-DBOE-get.metadata"></a>}}
-\if{latex}{\out{\hypertarget{method-DBOE-get.metadata}{}}}
-\subsection{Method \code{get.metadata()}}{
-\code{$get.metadata()} retrieves metadata information for the database pointed to by argument \code{conns}. Once metadata has been retrieved, metadata can be accessed for tables, views, and stored procedures using the following access method: \code{<DBOE obj>$<database name>$<table/view/proc name>}
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{DBOE$get.metadata(..., include.procs = FALSE, chatty = FALSE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{DBOE$new(...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{...}}{\code{\link[rlang]{dots_list}}: one or more DBI/ODBC connection objects.}
-
-\item{\code{include.procs}}{(logical | FALSE) Should stored procedures be included in the metatdata retrieval?}
-
-\item{\code{chatty}}{(logical | FALSE) Should additional execution messages be sent to the console?}
+\item{\code{...}}{\code{\link[rlang]{dots_list}} A named list of \code{\link[DBI]{DBI}} connection objects.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
 The class object, invisibly
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-DBOE-make.virtual_database"></a>}}
-\if{latex}{\out{\hypertarget{method-DBOE-make.virtual_database}{}}}
-\subsection{Method \code{make.virtual_database()}}{
-\code{$make.virtual_database} creates a set of \code{\link[dplyr]{tbl}} objects in an environment.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{DBOE$make.virtual_database(
-  conn,
-  ...,
-  target_env = rlang::caller_env(),
-  sch = "dbo"
-)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{conn}}{The name of a metadata environment (created after calling \code{$get.metadata() })}
-
-\item{\code{...}}{Names or patterns of objects to retrieve to link from source.}
-
-\item{\code{target_env}}{The environment object where created objects should be stored}
-
-\item{\code{sch}}{(Optional) The target schema (e.g., dbo) on which to filter internal search results}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-An assignable environment object with \code{DBI}-sourced \code{\link[dplyr]{tbl}}s
 }
 }
 \if{html}{\out{<hr>}}

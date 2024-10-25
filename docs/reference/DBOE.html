@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">DBOE</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.2.9</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.3.0</span>
       </span>
     </div>
 
@@ -68,95 +68,36 @@
 <h3 id="public-methods">Public methods<a class="anchor" aria-label="anchor" href="#public-methods"></a></h3>
 
 <ul><li><p><a href="#method-DBOE-new"><code>DBOE$new()</code></a></p></li>
-<li><p><a href="#method-DBOE-get.metadata"><code>DBOE$get.metadata()</code></a></p></li>
-<li><p><a href="#method-DBOE-make.virtual_database"><code>DBOE$make.virtual_database()</code></a></p></li>
 <li><p><a href="#method-DBOE-clone"><code>DBOE$clone()</code></a></p></li>
 </ul></div><p></p><hr><a id="method-DBOE-new"></a><div class="section">
 <h3 id="method-new-">Method <code>new()</code><a class="anchor" aria-label="anchor" href="#method-new-"></a></h3>
 <p>Initialize the class object</p><div class="section">
 <h4 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va"><a href="../reference/DBOE.html">DBOE</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="op">)</span></span></code></pre></div><p></p></div>
-</div>
-
-<div class="section">
-<h4 id="returns">Returns<a class="anchor" aria-label="anchor" href="#returns"></a></h4>
-<p>The class object, invisibly</p>
-</div>
-
-</div><p></p><hr><a id="method-DBOE-get.metadata"></a><div class="section">
-<h3 id="method-get-metadata-">Method <code>get.metadata()</code><a class="anchor" aria-label="anchor" href="#method-get-metadata-"></a></h3>
-<p><code>$get.metadata()</code> retrieves metadata information for the database pointed to by argument <code>conns</code>. Once metadata has been retrieved, metadata can be accessed for tables, views, and stored procedures using the following access method: <code>&lt;DBOE obj&gt;$&lt;database name&gt;$&lt;table/view/proc name&gt;</code></p><div class="section">
-<h4 id="usage-1">Usage<a class="anchor" aria-label="anchor" href="#usage-1"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">DBOE</span><span class="op">$</span><span class="fu">get.metadata</span><span class="op">(</span><span class="va">...</span>, include.procs <span class="op">=</span> <span class="cn">FALSE</span>, chatty <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div><p></p></div>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va"><a href="../reference/DBOE.html">DBOE</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="va">...</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
 <h4 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>...</code></dt>
-<dd><p><code><a href="https://rlang.r-lib.org/reference/list2.html" class="external-link">dots_list</a></code>: one or more DBI/ODBC connection objects.</p></dd>
-
-
-<dt><code>include.procs</code></dt>
-<dd><p>(logical | FALSE) Should stored procedures be included in the metatdata retrieval?</p></dd>
-
-
-<dt><code>chatty</code></dt>
-<dd><p>(logical | FALSE) Should additional execution messages be sent to the console?</p></dd>
+<dd><p><code><a href="https://rlang.r-lib.org/reference/list2.html" class="external-link">dots_list</a></code> A named list of <code><a href="https://dbi.r-dbi.org/reference/DBI-package.html" class="external-link">DBI</a></code> connection objects.</p></dd>
 
 
 </dl><p></p></div>
 </div>
 <div class="section">
-<h4 id="returns-1">Returns<a class="anchor" aria-label="anchor" href="#returns-1"></a></h4>
+<h4 id="returns">Returns<a class="anchor" aria-label="anchor" href="#returns"></a></h4>
 <p>The class object, invisibly</p>
-</div>
-
-</div><p></p><hr><a id="method-DBOE-make.virtual_database"></a><div class="section">
-<h3 id="method-make-virtual-database-">Method <code>make.virtual_database()</code><a class="anchor" aria-label="anchor" href="#method-make-virtual-database-"></a></h3>
-<p><code>$make.virtual_database</code> creates a set of <code><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></code> objects in an environment.</p><div class="section">
-<h4 id="usage-2">Usage<a class="anchor" aria-label="anchor" href="#usage-2"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">DBOE</span><span class="op">$</span><span class="fu">make.virtual_database</span><span class="op">(</span></span>
-<span>  <span class="va">conn</span>,</span>
-<span>  <span class="va">...</span>,</span>
-<span>  target_env <span class="op">=</span> <span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/stack.html" class="external-link">caller_env</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>  sch <span class="op">=</span> <span class="st">"dbo"</span></span>
-<span><span class="op">)</span></span></code></pre></div><p></p></div>
-</div>
-
-<div class="section">
-<h4 id="arguments-1">Arguments<a class="anchor" aria-label="anchor" href="#arguments-1"></a></h4>
-<p></p><div class="arguments"><dl><dt><code>conn</code></dt>
-<dd><p>The name of a metadata environment (created after calling <code>$get.metadata() </code>)</p></dd>
-
-
-<dt><code>...</code></dt>
-<dd><p>Names or patterns of objects to retrieve to link from source.</p></dd>
-
-
-<dt><code>target_env</code></dt>
-<dd><p>The environment object where created objects should be stored</p></dd>
-
-
-<dt><code>sch</code></dt>
-<dd><p>(Optional) The target schema (e.g., dbo) on which to filter internal search results</p></dd>
-
-
-</dl><p></p></div>
-</div>
-<div class="section">
-<h4 id="returns-2">Returns<a class="anchor" aria-label="anchor" href="#returns-2"></a></h4>
-<p>An assignable environment object with <code>DBI</code>-sourced <code><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></code>s</p>
 </div>
 
 </div><p></p><hr><a id="method-DBOE-clone"></a><div class="section">
 <h3 id="method-clone-">Method <code>clone()</code><a class="anchor" aria-label="anchor" href="#method-clone-"></a></h3>
 <p>The objects of this class are cloneable with this method.</p><div class="section">
-<h4 id="usage-3">Usage<a class="anchor" aria-label="anchor" href="#usage-3"></a></h4>
+<h4 id="usage-1">Usage<a class="anchor" aria-label="anchor" href="#usage-1"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">DBOE</span><span class="op">$</span><span class="fu">clone</span><span class="op">(</span>deep <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-2">Arguments<a class="anchor" aria-label="anchor" href="#arguments-2"></a></h4>
+<h4 id="arguments-1">Arguments<a class="anchor" aria-label="anchor" href="#arguments-1"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>deep</code></dt>
 <dd><p>Whether to make a deep clone.</p></dd>
 

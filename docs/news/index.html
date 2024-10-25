@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">DBOE</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.2.9</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">2.3.0</span>
       </span>
     </div>
 
@@ -48,10 +48,15 @@
     </div>
 
     <div class="section level2">
-<h2 class="page-header" data-toc-text="2.2.9" id="dboe-229">DBOE 2.2.9<a class="anchor" aria-label="anchor" href="#dboe-229"></a></h2>
+<h2 class="page-header" data-toc-text="2.3.0" id="dboe-230">DBOE 2.3.0<a class="anchor" aria-label="anchor" href="#dboe-230"></a></h2>
 <div class="section level3">
-<h3 id="updated-2-2-9">Updated<a class="anchor" aria-label="anchor" href="#updated-2-2-9"></a></h3>
-<ul><li>DBOE class method <code>make.virtual_database()</code>: Added parameter <em>include.procs</em> to allow the scanning of stored procedures to be “opt-in”. This was done to accomodate situations where the permissions to read certain metadata objects from the database have not been granted.</li>
+<h3 id="breaking-changes-2-3-0">Breaking Changes<a class="anchor" aria-label="anchor" href="#breaking-changes-2-3-0"></a></h3>
+<ul><li>
+<strong><code><a href="../reference/get.metadata.html">get.metadata()</a></code></strong> and <strong><code><a href="../reference/make.virtual_database.html">make.virtual_database()</a></code></strong> are now standalone functions instead of class methods. Each has been re-written and simplified with largely the same function signatures as previous versions.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="updates-2-3-0">Updates<a class="anchor" aria-label="anchor" href="#updates-2-3-0"></a></h3>
+<ul><li>Added function <strong><code><a href="../reference/make.db_connection.html">make.db_connection()</a></code></strong>, a DBI connection helper function</li>
 </ul></div>
 </div>
   </div>
