@@ -1,3 +1,9 @@
+# DBOE 2.3.1
+
+## Bug Fixes
+
+- **`make.virtual_database()`**: Set the default value for argument `exclude` to `NA`.
+
 # DBOE 2.3.0
 
 ## Breaking Changes
