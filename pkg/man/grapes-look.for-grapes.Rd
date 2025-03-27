@@ -4,10 +4,10 @@
 \alias{\%look.for\%}
 \title{Look for a Database Metadata Reference}
 \usage{
-i \%look.for\% x
+haystack \%look.for\% x
 }
 \arguments{
-\item{i}{(object) A \code{metamap} object or database environment (e.g., \code{DBOE$database}) containing the \code{metamap} object}
+\item{haystack}{(object) A \code{metamap} object or database environment (e.g., \code{DBOE$database}) containing the \code{metamap} object}
 
 \item{x}{(string[]) A vector of REGEX patterns or exact names to use for matching against database object names}
 }

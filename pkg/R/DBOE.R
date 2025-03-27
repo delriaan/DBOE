@@ -34,7 +34,7 @@ DBOE <- { R6::R6Class(
   		#' @field connection.list Sets or returns a list of saved connections.  When providing a list, it should be names by database.
   		connection.list = function(i = NULL){
 				if (is.list(i)){ 
-					private$connections[] <- i
+					private$connections[names(i)] <- i
 					return()
 				} else { 
 					return(private$connections) 

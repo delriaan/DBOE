@@ -12,16 +12,23 @@ make.virtual_database <- \(dboe = NULL, conn = NULL, ..., target_env = .GlobalEn
   #' 
   #' @export
   assertive::assert_is_identical_to_true(is(dboe, "DBOE"))
-  conn <- as.character(rlang::enexpr(conn))
-  sch <- as.character(rlang::enexpr(sch))
-  assertive::assert_is_identical_to_true(conn %in% names(dboe$connection.list))
-  conn <- dboe$connection.list[[conn]]
-  db <- conn@info$dbname
-  target_env <- as.environment(target_env)
   
-  queue <- rlang::enexprs(...) |> 
-    as.character() |>
-    sapply(\(x){
+  conn <- as.character(rlang::enexpr(conn))
+  assertive::assert_is_identical_to_true(conn %in% names(dboe$connection.list))
+  assertive::assert_is_environment(target_env)
+
+  .conn <- dboe$connection.list[[conn]]
+  db <- if (is(.conn, "DuckDB")){ 
+          .conn@info$dbname |> fs::path_file() |> fs::path_ext_remove()
+        } else if (is(.conn, "duckdb_connection")){
+          conn
+        } else { .conn@info$dbname }
+  
+  sch <- as.character(rlang::enexpr(sch))
+  
+  queue <- rlang::enexprs(..., .ignore_empty = "all") |> as.character()
+  assertive::assert_is_atomic(queue)  
+  queue <- sapply(queue, \(x){
       res <- dboe[[db]] %look.for% x
 
       if (rlang::is_empty(res) || nrow(res) == 0){ 
@@ -35,12 +42,14 @@ make.virtual_database <- \(dboe = NULL, conn = NULL, ..., target_env = .GlobalEn
 
   # Exclude table names matching the pattern in 'exclude':
   if (!is.na(exclude)){
-    queue <- grep(paste(sprintf("(%s)", exclude), collapse = "|"), queue, value = TRUE, ignore.case = TRUE, invert = TRUE)
+    .pattern <- paste(sprintf("(%s)", exclude), collapse = "|") |> unlist()
+    assertive::assert_is_of_length(.pattern, 1)
+    queue <- grep(.pattern, queue, value = TRUE, ignore.case = TRUE, invert = TRUE)
   }
 
   queue |>
     purrr::walk(\(x){
       this <- DBI::Id(catalog = db, schema = sch, table = x)
-      assign(x, dplyr::tbl(conn, this), envir = target_env)
+      assign(x, dplyr::tbl(.conn, this), envir = target_env)
     }, .progress = TRUE)
 }
