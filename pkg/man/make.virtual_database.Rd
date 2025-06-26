@@ -18,11 +18,11 @@ make.virtual_database(
 
 \item{conn}{(symbol, string) The name of a metadata environment (created after calling \code{get.metadata()}).}
 
-\item{...}{\code{\link[rlang]{dots_list}} Names or patterns of objects for which links will be made.}
+\item{...}{\code{\link[rlang]{dots_list}} Symbols or strings for which table pointers will be made. Elements with a dot (.) indicate qualified names and will be treated as such, allowing cross-database endpoints to be referenced from a single connection.}
 
 \item{target_env}{The environment object where created objects should be stored.}
 
-\item{sch}{(symbo, string) The target schema (e.g., dbo) to use to select linked objects.}
+\item{sch}{(symbol, string) The target schema (e.g., dbo) to use to select linked objects.}
 
 \item{exclude}{(string[]) Patterns and names to exclude from search.}
 }

@@ -12,7 +12,7 @@ make.db_connection(..., drv = odbc::odbc(), default)
 \item{drv}{A DBI-compliant driver}
 }
 \value{
-A \code{\link[DBI]{DBI}}-compliant connection object.
+A \code{\link[DBI]{DBI}}-compliant connection object with attribute \code{odbc_string}
 }
 \description{
 This is a helper function that wraps \code{\link[DBI]{dbConnect}}

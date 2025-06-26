@@ -1,15 +1,30 @@
-# DBOE 2.3.1
+# Version 2.3
 
-## Bug Fixes
+## 2.3.3
 
-- **`make.virtual_database()`**: Set the default value for argument `exclude` to `NA`.
+### Updates
+- `DBOE`: Removed methods `get.metadata()` and `make.virtual_database()` from public methods
+- `make.db_connection()`: Returned object has attribute "odbc_string"
+- `make.virtual_database()`: The "dots-list" now accepts qualified name (e.g., "catalog.schema.table")
 
-# DBOE 2.3.0
+## 2.3.2
 
-## Breaking Changes
+### Updates
+- `get.metadata()`: Enforce upper-case on column names of the response after querying `INFORMATION_SCHEMA.COLMUMNS`
+- `make.virtual_database()`: Added support for DuckDB (on-disk and in-memory)
 
-- **`get.metadata()`** and **`make.virtual_database()`** are now standalone functions instead of class methods. Each has been re-written and simplified with largely the same function signatures as previous versions.
+## 2.3.1
 
-## Updates
+### Bug Fixes
 
-- Added function **`make.db_connection()`**, a DBI connection helper function
+- `make.virtual_database()`: Set the default value for argument `exclude` to `NA`.
+
+## 2.3.0
+
+### Breaking Changes
+
+- `get.metadata()` and `make.virtual_database()` are now standalone functions instead of class methods. Each has been re-written and simplified with largely the same function signatures as previous versions.
+
+### Updates
+
+- Added function `make.db_connection()`, a DBI connection helper function

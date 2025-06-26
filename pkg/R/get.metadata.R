@@ -24,9 +24,13 @@ get.metadata <- \(dboe){
           , data_type = "DATA_TYPE"
           )
       
+      assign(db, new.env(), envir = dboe)
       proxy_env <- get(db, envir = dboe)
 
-      res <- DBI::dbGetQuery(conn, "SELECT * FROM INFORMATION_SCHEMA.COLUMNS") |> data.table::as.data.table() 
+      res <- DBI::dbGetQuery(conn, "SELECT * FROM INFORMATION_SCHEMA.COLUMNS") |> data.table::as.data.table()
+      
+      # Force upper-case just to be safe 
+      data.table::setnames(res, toupper(names(res)))
 
       data.table::setnames(res, .info_schema_name_map, names(.info_schema_name_map))
       data.table::setcolorder(res, names(.info_schema_name_map))

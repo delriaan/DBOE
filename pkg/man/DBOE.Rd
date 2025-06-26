@@ -32,7 +32,7 @@ Initialize the class object
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{...}}{\code{\link[rlang]{dots_list}} A named list of \code{\link[DBI]{DBI}} connection objects.}
+\item{\code{...}}{\code{\link[rlang]{dots_list}}: named DBI-compliant connection objects}
 }
 \if{html}{\out{</div>}}
 }

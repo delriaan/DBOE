@@ -1,30 +1,37 @@
-`%look.for%` <- function(i, x){
+`%look.for%` <- function(haystack, x){
 	#' Look for a Database Metadata Reference
 	#'
 	#' The \code{\%look.for\%} operator searches the provided metadata environment or \code{metamap} object in such an environment for the Regex pattern passed to \code{x}.
 	#'
-	#' @param i (object) A \code{metamap} object or database environment (e.g., \code{DBOE$database}) containing the \code{metamap} object
+	#' @param haystack (object) A \code{metamap} object or database environment (e.g., \code{DBOE$database}) containing the \code{metamap} object
 	#' @param x (string[]) A vector of REGEX patterns or exact names to use for matching against database object names
 	#'
 	#' @return A \code{\link[data.table]{data.table}} object with the items that were found, if any
 	#'
 	#' @export
 
-  if (is.environment(i)){ if (rlang::env_has(i, "metamap")){ i <- i$metamap }}
-  if (!is.data.table(i)){ i <- as.data.table(i) }
+  haystack <- switch(
+    is.environment(haystack)
+    , "TRUE" = { if (rlang::env_has(haystack, "metamap")){ haystack$metamap } else { haystack } }
+    , "FALSE" = { data.table::as.data.table(haystack) }
+    )
 
 	.needle <- paste(sprintf("(%s)", x), collapse = "|")
-  .hits <- lapply(i, \(x) which(grepl(.needle, x, ignore.case = TRUE))) |> unlist(use.names = FALSE) |> unique() |> sort()
+  .hits <- purrr::map(haystack, \(bale) which(data.table::`%ilike%`(bale, .needle))) |> 
+    unlist(use.names = FALSE) |> 
+    unique() |> 
+    sort()
 
 	if (rlang::has_length(.hits, 0)){
 		cli::cli_alert_warning("No object matches found: exiting ...")
 		return()
 	}
 
-  .out <- data.table::setattr(
-					i[(.hits)]
-	  			, "group_cols"
-	  			, intersect(c("database", "table_schema", "schema_name", "tbl_name", "proc_name", "view_name"), names(i))
+  .out <- data.table::setattr(haystack[(.hits)], "group_cols"
+          , intersect(
+              c("database", "table_schema", "schema_name", "tbl_name", "proc_name", "view_name")
+              , names(haystack)
+              )
   				)
 
 	# Check for hits in the 'col_names' field of the metamap since this will cause other

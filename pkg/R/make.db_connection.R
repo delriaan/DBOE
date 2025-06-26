@@ -6,7 +6,7 @@ make.db_connection <- \(..., drv = odbc::odbc(), default){
   #' @param drv A DBI-compliant driver
   #' @param ... Valid values passed to \code{\link[DBI]{dbConnect}}.
   #' 
-  #' @return A \code{\link[DBI]{DBI}}-compliant connection object.
+  #' @return A \code{\link[DBI]{DBI}}-compliant connection object with attribute \code{odbc_string}
   #' @export
   .odbc_string <- if (!missing(default)){ 
       as.list(default) 
@@ -18,5 +18,6 @@ make.db_connection <- \(..., drv = odbc::odbc(), default){
     .odbc_string$drv <- drv
   }
 
-  do.call(DBI::dbConnect, args = .odbc_string)
+  do.call(DBI::dbConnect, args = .odbc_string) |> 
+    magrittr::set_attr("odbc_string", .odbc_string)
 }

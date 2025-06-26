@@ -3,31 +3,43 @@ make.virtual_database <- \(dboe = NULL, conn = NULL, ..., target_env = .GlobalEn
   #' 
   #' @param dboe A \code{\link[DBOE]{DBOE}} object.
   #' @param conn (symbol, string) The name of a metadata environment (created after calling \code{get.metadata()}).
-  #' @param ... \code{\link[rlang]{dots_list}} Names or patterns of objects for which links will be made.
-  #' @param sch (symbo, string) The target schema (e.g., dbo) to use to select linked objects.
+  #' @param ... \code{\link[rlang]{dots_list}} Symbols or strings for which table pointers will be made. Elements with a dot (.) indicate qualified names and will be treated as such, allowing cross-database endpoints to be referenced from a single connection.
+  #' @param sch (symbol, string) The target schema (e.g., dbo) to use to select linked objects.
   #' @param target_env The environment object where created objects should be stored.
   #' @param exclude (string[]) Patterns and names to exclude from search.
   #' 
   #' @return None: DBI-sourced \code{\link[dplyr]{tbl}}s are assigned to \code{target_env}.
   #' 
   #' @export
-  assertive::assert_is_identical_to_true(is(dboe, "DBOE"))
+  assertive::assert_is_identical_to_true(is(dboe, "DBOE"))  
   conn <- as.character(rlang::enexpr(conn))
-  sch <- as.character(rlang::enexpr(sch))
   assertive::assert_is_identical_to_true(conn %in% names(dboe$connection.list))
-  conn <- dboe$connection.list[[conn]]
-  db <- conn@info$dbname
-  target_env <- as.environment(target_env)
+  assertive::assert_is_environment(target_env)
+
+  .conn <- dboe$connection.list[[conn]]
+  db <- if (is(.conn, "DuckDB")){ 
+          .conn@info$dbname |> fs::path_file() |> fs::path_ext_remove()
+        } else if (is(.conn, "duckdb_connection")){
+          conn
+        } else { .conn@info$dbname }
   
-  queue <- rlang::enexprs(...) |> 
-    as.character() |>
-    sapply(\(x){
+  sch <- as.character(rlang::enexpr(sch))  
+  queue <- as.character(rlang::enexprs(..., .ignore_empty = "all"))
+  assertive::assert_is_atomic(queue)
+
+  queue <- lapply(queue, \(x){
+      # Return qualified paths as identifiers, making this the responsibility
+      # of the user to supply a valid string:
+      if (grepl("[.]", x)){
+        return(do.call(DBI::Id, rlang::splice(strsplit(x, ".", fixed = TRUE)[[1]])))
+      }
+      
       res <- dboe[[db]] %look.for% x
 
       if (rlang::is_empty(res) || nrow(res) == 0){ 
         NULL 
       } else { 
-        res[(schema_name == sch), unique(tbl_name)] 
+        res[(schema_name == sch), unique(tbl_name)]
       }
     }) |>
     purrr::compact() |>
@@ -35,12 +47,21 @@ make.virtual_database <- \(dboe = NULL, conn = NULL, ..., target_env = .GlobalEn
 
   # Exclude table names matching the pattern in 'exclude':
   if (!is.na(exclude)){
-    queue <- grep(paste(sprintf("(%s)", exclude), collapse = "|"), queue, value = TRUE, ignore.case = TRUE, invert = TRUE)
+    .pattern <- paste(sprintf("(%s)", exclude), collapse = "|") |> unlist()
+    assertive::assert_is_of_length(.pattern, 1)
+    queue <- grep(.pattern, queue, value = TRUE, ignore.case = TRUE, invert = TRUE)
   }
 
+  # Return:
   queue |>
     purrr::walk(\(x){
-      this <- DBI::Id(catalog = db, schema = sch, table = x)
-      assign(x, dplyr::tbl(conn, this), envir = target_env)
+      if (!methods::is(x, "Id")){
+        this <- DBI::Id(catalog = db, schema = sch, table = x)
+      } else {
+        browser()
+        this <- x
+        x <- x@name |> paste(collapse = ".")
+      } 
+      assign(x, dplyr::tbl(.conn, this), envir = target_env)
     }, .progress = TRUE)
 }
