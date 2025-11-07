@@ -1,7 +1,7 @@
 #' Database Object Explorer
 #'
 #' @description
-#' \code{DBOE} facilitates the navigation of SQL-based database engines by means of metadata. Engines tested to date include Microsoft SQL Server and MySQL.
+#' \code{DBOE} facilitates the navigation of SQL-based database engines by means of metadata. Engines tested to date include Microsoft SQL Server, MySQL, SQLite, and DuckDB.
 #'
 #' @importFrom rlang %||%
 #' @importFrom magrittr %>% %$% %T>% %<>%

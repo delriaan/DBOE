@@ -2,6 +2,6 @@
 
 `DBOE` facilitates the navigation of SQL-based database engines by leveraging metadata. 
 
-Engines tested to date include Microsoft SQL Server.
+Engines tested to date include `Microsoft SQL Server`, `MySQL`, `SQLite`, and `DuckDB`.
 
 Use `remotes::install_github('delriaan/DBOE, subdir = "pkg")` to install.

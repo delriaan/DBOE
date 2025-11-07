@@ -1,26 +1,33 @@
-Package: DBOE
 Type: Package
+Package: DBOE
 Title: Database Object Explorer
-Version: 2.3.3
+Version: 2.3.4
 Author: Chionesu George <sapienti.Dei@outlook.com> [aut, cre]
 Maintainer: Chionesu George <sapienti.Dei@outlook.com>
 Description: Package `DBOE` facilitates the exploration of DBMS metadata.
-License: file LICENSE
+License: Copyright 2023, 2024, 2025 Chionesu George. All rights reserved.
+URL: https://github.com/delriaan/DBOE, https://delriaan.github.io/DBOE
+Depends: 
+    data.table (>= 1.17),
+    R (>= 4.5.0)
+Imports: 
+    DBI (>= 1.2.3),
+    dplyr (>= 1.1.4),
+    duckdb (>= 1.2.2),
+    httr2 (>= 1.1.2),
+    magrittr (>= 2.0.3),
+    purrr (>= 1.0.4),
+    rlang (>= 1.1.6),
+    RSQLite (>= 2.3.11),
+    stringi (>= 1.8.7),
+    tictoc (>= 1.2.1)
+Suggests: 
+    keyring (>= 1.4),
+    RMariaDB (>= 1.2)
+VignetteBuilder: 
+    knitr
+Desc: Explore DBMS metadata.
 Encoding: UTF-8
 LazyData: true
-Desc: Explore DBMS metadata.
-Depends: R (>= 4.4.1), data.table
-Imports: 
-	DBI
-	, purrr (>= 1.0.0)
-	, dplyr
-	, httr2
-	, stringi
-	, magrittr
-	, rlang
-	, tictoc
-Suggests: RMariaDB (>= 1.2.0), keyring
-RoxygenNote: 7.3.2
 Roxygen: list(markdown = TRUE)
-VignetteBuilder: knitr
-URL: https://github.com/delriaan/DBOE/, https://delriaan.github.io/DBOE/
+RoxygenNote: 7.3.2

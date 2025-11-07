@@ -11,15 +11,15 @@ make.virtual_database <- \(dboe = NULL, conn = NULL, ..., target_env = .GlobalEn
   #' @return None: DBI-sourced \code{\link[dplyr]{tbl}}s are assigned to \code{target_env}.
   #' 
   #' @export
-  assertive::assert_is_identical_to_true(is(dboe, "DBOE"))  
+  assertive::assert_is_identical_to_true(methods::is(dboe, "DBOE"))  
   conn <- as.character(rlang::enexpr(conn))
   assertive::assert_is_identical_to_true(conn %in% names(dboe$connection.list))
   assertive::assert_is_environment(target_env)
 
   .conn <- dboe$connection.list[[conn]]
-  db <- if (is(.conn, "DuckDB")){ 
+  db <- if (methods::is(.conn, "DuckDB")){ 
           .conn@info$dbname |> fs::path_file() |> fs::path_ext_remove()
-        } else if (is(.conn, "duckdb_connection")){
+        } else if (methods::is(.conn, "duckdb_connection") | methods::is(.conn, "SQLiteConnection")){
           conn
         } else { .conn@info$dbname }
   
@@ -56,9 +56,12 @@ make.virtual_database <- \(dboe = NULL, conn = NULL, ..., target_env = .GlobalEn
   queue |>
     purrr::walk(\(x){
       if (!methods::is(x, "Id")){
-        this <- DBI::Id(catalog = db, schema = sch, table = x)
+        if (methods::is(.conn, "SQLiteConnection")){
+          this <- DBI::Id(schema = sch, table = x)
+        } else {
+          this <- DBI::Id(catalog = db, schema = sch, table = x)
+        }
       } else {
-        browser()
         this <- x
         x <- x@name |> paste(collapse = ".")
       } 

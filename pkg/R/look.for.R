@@ -36,7 +36,7 @@
 
 	# Check for hits in the 'col_names' field of the metamap since this will cause other
 	# fields to duplicate rows:
-  if ("col_names" %in% names(.out)){
+  if ("col_name" %in% names(.out)){
   	.out[!is.na(col_name), .(col_names = list(c(col_name))), by = c(attr(.out, "group_cols"))]
   } else {
   	.out[, c(attr(.out, "group_cols")), with = FALSE]
