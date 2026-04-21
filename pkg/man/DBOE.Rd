@@ -17,6 +17,7 @@
 \subsection{Public methods}{
 \itemize{
 \item \href{#method-DBOE-new}{\code{DBOE$new()}}
+\item \href{#method-DBOE-reconnect}{\code{DBOE$reconnect()}}
 \item \href{#method-DBOE-clone}{\code{DBOE$clone()}}
 }
 }
@@ -38,6 +39,26 @@ Initialize the class object
 }
 \subsection{Returns}{
 The class object, invisibly
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-DBOE-reconnect"></a>}}
+\if{latex}{\out{\hypertarget{method-DBOE-reconnect}{}}}
+\subsection{Method \code{reconnect()}}{
+Refresh Database Connections
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{DBOE$reconnect(...)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{\code{\link[rlang]{dots_list}}: Symbols or names of connections to refresh (e.g., \code{names(dboe$connection.list)})}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+None: Matching connections in \code{dboe$connection.list} are reinitialized.
 }
 }
 \if{html}{\out{<hr>}}

@@ -8,7 +8,7 @@ make.virtual_database(
   dboe = NULL,
   conn = NULL,
   ...,
-  target_env = .GlobalEnv,
+  target_env,
   sch = "dbo",
   exclude = NA
 )
@@ -20,7 +20,7 @@ make.virtual_database(
 
 \item{...}{\code{\link[rlang]{dots_list}} Symbols or strings for which table pointers will be made. Elements with a dot (.) indicate qualified names and will be treated as such, allowing cross-database endpoints to be referenced from a single connection.}
 
-\item{target_env}{The environment object where created objects should be stored.}
+\item{target_env}{The environment object where created objects should be stored.  If no value is provided, \code{self[[conn]]} is attached as \verb{dboe_<conn>}.}
 
 \item{sch}{(symbol, string) The target schema (e.g., dbo) to use to select linked objects.}
 

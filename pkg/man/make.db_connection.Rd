@@ -2,7 +2,7 @@
 % Please edit documentation in R/make.db_connection.R
 \name{make.db_connection}
 \alias{make.db_connection}
-\title{Make an ODBC MSSQL Database Connection}
+\title{Make a Database Connection}
 \usage{
 make.db_connection(..., drv = odbc::odbc(), default)
 }
@@ -15,5 +15,5 @@ make.db_connection(..., drv = odbc::odbc(), default)
 A \code{\link[DBI]{DBI}}-compliant connection object with attribute \code{odbc_string}
 }
 \description{
-This is a helper function that wraps \code{\link[DBI]{dbConnect}}
+This is a helper function that wraps \code{\link[DBI]{dbConnect}}.
 }
