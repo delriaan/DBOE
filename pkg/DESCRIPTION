@@ -1,29 +1,29 @@
 Package: DBOE
 Type: Package
 Title: Database Object Explorer
-Version: 2.3.5
+Version: 2.3.7
+Authors@R: person("Chionesu", "George", email = "sapienti.Dei@outlook.com", role = c("aut", "cre"))
+Description: Facilitates exploration of DBMS metadata.
 License: GPL (>= 3)
-Author: Chionesu George <sapienti.Dei@outlook.com> [aut, cre]
-Maintainer: Chionesu George <sapienti.Dei@outlook.com>
-Description: Package `DBOE` facilitates the exploration of DBMS metadata.
 Depends: R (>= 4.5.0), data.table (>= 1.18.0)
-Imports: 
-	DBI (>= 1.3.0)
-	, purrr (>= 1.2.0)
-	, dplyr (>= 1.2.0)
-	, dbplyr (>= 2.5.0)
-	, httr2 (>= 1.2.0)
-	, stringi (>= 1.8.0)
-	, magrittr (>= 2.0.0)
-	, rlang (>= 1.1.0)
-	, tictoc (>= 1.2.0)
-Suggests: 
-	duckdb (>= 1.4.0)
-	, RMariaDB (>= 1.2.0)
-	, keyring (>= 1.4.0)
+Imports:
+    DBI (>= 1.3.0),
+    purrr (>= 1.2.0),
+    dplyr (>= 1.2.0),
+    dbplyr (>= 2.5.0),
+    httr2 (>= 1.2.0),
+    stringi (>= 1.8.0),
+    magrittr (>= 2.0.0),
+    rlang (>= 1.1.0),
+    tictoc (>= 1.2.0)
+Suggests:
+    duckdb (>= 1.4.0),
+    RMariaDB (>= 1.2.0),
+    keyring (>= 1.4.0)
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.3.3
 Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
 VignetteBuilder: knitr
 URL: https://github.com/delriaan/DBOE/, https://delriaan.github.io/DBOE/
+BugReports: https://github.com/delriaan/DBOE/issues

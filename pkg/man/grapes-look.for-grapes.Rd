@@ -7,13 +7,16 @@
 haystack \%look.for\% x
 }
 \arguments{
-\item{haystack}{(object) A \code{metamap} object or database environment (e.g., \code{DBOE$database}) containing the \code{metamap} object}
+\item{haystack}{An object. Either a \code{metamap} object or a database
+environment, for example \code{DBOE$database}, containing \code{metamap}.}
 
-\item{x}{(string[]) A vector of REGEX patterns or exact names to use for matching against database object names}
+\item{x}{A character vector of regular expression patterns or exact names to
+match against database object names.}
 }
 \value{
-A \code{\link[data.table]{data.table}} object with the items that were found, if any
+A \code{\link[data.table:data.table]{data.table::data.table()}} with matching items, if any are found.
 }
 \description{
-The \code{\%look.for\%} operator searches the provided metadata environment or \code{metamap} object in such an environment for the Regex pattern passed to \code{x}.
+Searches a metadata environment or \code{metamap} object for the regular
+expression patterns passed to \code{x}.
 }

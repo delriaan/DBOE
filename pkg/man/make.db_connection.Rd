@@ -7,13 +7,16 @@
 make.db_connection(..., drv = odbc::odbc(), default)
 }
 \arguments{
-\item{...}{Valid values passed to \code{\link[DBI]{dbConnect}}.}
+\item{...}{Named arguments passed to \code{\link[DBI:dbConnect]{DBI::dbConnect()}}.}
 
-\item{drv}{A DBI-compliant driver}
+\item{drv}{A DBI-compliant driver object.}
+
+\item{default}{An optional named list of default connection arguments.}
 }
 \value{
-A \code{\link[DBI]{DBI}}-compliant connection object with attribute \code{odbc_string}
+A DBI-compliant connection object with a \code{call} attribute storing the
+connection expression.
 }
 \description{
-This is a helper function that wraps \code{\link[DBI]{dbConnect}}.
+Helper that wraps \code{\link[DBI:dbConnect]{DBI::dbConnect()}}.
 }

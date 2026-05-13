@@ -10,25 +10,38 @@ make.virtual_database(
   ...,
   target_env,
   sch = "dbo",
-  exclude = NA
+  exclude = NA,
+  lazy = TRUE
 )
 }
 \arguments{
-\item{dboe}{A \code{\link[DBOE]{DBOE}} object.}
+\item{dboe}{A \link{DBOE} object.}
 
-\item{conn}{(symbol, string) The name of a metadata environment (created after calling \code{get.metadata()}).}
+\item{conn}{A symbol or character string naming a metadata environment
+created after calling \code{\link[=get.metadata]{get.metadata()}}.}
 
-\item{...}{\code{\link[rlang]{dots_list}} Symbols or strings for which table pointers will be made. Elements with a dot (.) indicate qualified names and will be treated as such, allowing cross-database endpoints to be referenced from a single connection.}
+\item{...}{\code{\link[rlang]{dots_list}}: Symbols, calls, \code{DBI::Id()} objects, or character strings for
+which table pointers will be made. Elements containing \code{.} are treated as
+qualified names, allowing cross-database endpoints to be referenced from a
+single connection.
+Nested lists will be flattened with names following the behavior of \code{\link[base]{unlist}}.}
 
-\item{target_env}{The environment object where created objects should be stored.  If no value is provided, \code{self[[conn]]} is attached as \verb{dboe_<conn>}.}
+\item{target_env}{An environment in which created objects should be stored.
+If omitted, \code{dboe[[conn]]} is attached as \verb{dboe_<conn>}.}
 
-\item{sch}{(symbol, string) The target schema (e.g., dbo) to use to select linked objects.}
+\item{sch}{A symbol or character string giving the target schema to use when
+selecting linked objects.}
 
-\item{exclude}{(string[]) Patterns and names to exclude from search.}
+\item{exclude}{A character vector of patterns or names to exclude from the
+search.}
+
+\item{lazy}{A boolean indicating whether to include \code{dboe_lazy_table} objects.
+Arguments to the dots list with matching names in the connection environment are overriden.}
 }
 \value{
-None: DBI-sourced \code{\link[dplyr]{tbl}}s are assigned to \code{target_env}.
+Side effects only. DBI-sourced \code{\link[dplyr:tbl]{dplyr::tbl()}} objects are assigned to
+\code{target_env}.
 }
 \description{
-Make a Virtual Database of Table Links
+Creates DBI-backed \code{\link[dplyr:tbl]{dplyr::tbl()}} objects in a target environment.
 }

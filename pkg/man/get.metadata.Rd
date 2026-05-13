@@ -4,17 +4,23 @@
 \alias{get.metadata}
 \title{Get Database Metadata}
 \usage{
-get.metadata(dboe)
+get.metadata(dboe, ...)
 }
 \arguments{
-\item{dboe}{A \code{\link[DBOE]{DBOE}} object}
+\item{dboe}{A \link{DBOE} object.}
+
+\item{...}{(\code{\link[rlang]{dots_list}}) One or more symbols/names of connection environments
+if they already exist in the object environment.
+
+For each database connection, an environment is
+created within \code{dboe} containing a \code{metamap} object with columns \code{database},
+\code{tbl_name}, \code{col_name}, \code{schema_name}, \code{column_id}, and \code{data_type}.
+Additionally, \code{\link{dboe_lazy_table}} objects are created for each table endpoint.}
 }
 \value{
-\itemize{
-\item{An object named \code{metamap} is created in \code{<DBOE obj>$<database name>} having the following columns: \code{database}, \code{tbl_name}, \code{col_name}, \code{schema_name}, \code{column_id}, \code{data_type}.}
-\item{For each table name in \code{metamap}, an object is created in \code{<DBOE obj>$<database name>} containing column metadata. This is essentially the same data, but allows for easier navigation using R's accessor function.}
-}
+Side effects only: warnings are thrown for non-existent connection environment names passed to \code{...}.
 }
 \description{
-\code{get.metadata()} retrieves metadata information for the database pointed to by argument \code{conns}. Once metadata has been retrieved, metadata can be accessed for tables, views, and stored procedures using the following access method: \code{<DBOE obj>$<database name>$<table/view/proc name>}
+Retrieves metadata information for each database connection stored in a
+\link{DBOE} object.
 }

@@ -1,3 +1,7 @@
+.onLoad <- function(...) {
+  S7::methods_register()
+}
+
 #' Database Object Explorer
 #'
 #' @description
@@ -45,13 +49,27 @@ DBOE <- R6::R6Class(
 					if (...length() == 0){
 						conns <- private$connections
 					} else {
-						conns <- rlang::enexprs(...) |> as.character()
-						conns <- private$connections[[conns]]
+						conns <- private$connections[rlang::enexprs(...) |> as.character()]
 					}
 				
 					purrr::iwalk(conns, ~tryCatch({
-						if (DBI::dbIsValid(.x)) return()
-						private$connections[[.y]] <<- eval(attr(.x, "call"))
+						if (DBI::dbIsValid(.x)){ 
+							cli::cli_alert_info("Connection '{(.y)}' is valid: no action taken ...")
+							return()
+						}
+						cli::cli_alert_info("Attempting to refresh connection '{(.y)}' ...")
+
+						drv <- attr(.x, "driver")
+						db <- fs::path_file(drv@dbdir)
+						private$connections[[.y]] <<- make.db_connection(
+							Server = "localhost"
+							, Database = db
+							, drv = duckdb::duckdb(dbdir = db)
+							)
+						if (DBI::dbIsValid(private$connections[[.y]])){
+							assign(".conn", private$connections[[.y]], envir = self[[.y]])
+							cli::cli_alert_success("Connection '{(.y)}' successfully refreshed!")
+						}
 					}, error = \(e) print(e)))
 				}
 			)

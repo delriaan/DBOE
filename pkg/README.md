@@ -1,6 +1,4 @@
 ---
-engines:
-- path: /usr/share/positron/resources/app/quarto/share/extension-subtrees/julia-engine/\_extensions/julia-engine/julia-engine.js
 toc-title: Table of contents
 ---
 
